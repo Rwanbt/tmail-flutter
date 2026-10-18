@@ -26,6 +26,12 @@ The new `.github/workflows/ci-required-policy.yaml` runs this portable
 Node.js policy test on every PR and master push. The full Flutter analysis
 workflow now runs on all PRs and master pushes, with pinned action revisions.
 
+An additional RED→GREEN test prevents exposing `secrets.FIREBASE_ENV`
+to source and scripts executed from pull requests. The analyzer and tests
+now generate an intentionally empty local Firebase test configuration.
+Production credentials remain reserved for separate protected release
+workflows. This is not equivalent to live Firebase integration coverage.
+
 **Remaining mandatory evidence:** every module's actual Flutter tests, the
 complete JS suite, Android/iOS/web binary builds, release signing isolation,
 JMAP/OIDC integration with a fake tenant, HTML rendering security tests,

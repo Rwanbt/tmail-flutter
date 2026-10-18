@@ -33,3 +33,9 @@ test('untrusted PR jobs have read-only token and pinned checkout without credent
   assert.equal(persistOptions.length, checkouts.length)
   assert.doesNotMatch(workflow, /\bsecrets\.SSH_KEY\b/)
 })
+
+test('pull-request analyzer and test code cannot read deployment Firebase secrets', () => {
+  assert.doesNotMatch(workflow, /\$\{\{\s*secrets\./)
+  assert.match(workflow, /FIREBASE_ENV: ''/)
+  assert.match(workflow, /run: \.\/scripts\/setup-firebase\.sh/)
+})
