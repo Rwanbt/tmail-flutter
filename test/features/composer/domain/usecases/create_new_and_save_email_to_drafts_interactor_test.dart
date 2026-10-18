@@ -16,6 +16,7 @@ import 'package:tmail_ui_user/features/composer/domain/state/generate_email_stat
 import 'package:tmail_ui_user/features/composer/domain/state/update_email_drafts_state.dart';
 import 'package:tmail_ui_user/features/composer/domain/usecases/create_new_and_save_email_to_drafts_interactor.dart';
 import 'package:tmail_ui_user/features/composer/presentation/model/create_email_request.dart';
+import 'package:tmail_ui_user/features/email/domain/exceptions/email_exceptions.dart';
 import 'package:tmail_ui_user/features/email/domain/repository/email_repository.dart';
 import 'package:tmail_ui_user/features/mailbox/domain/exceptions/mailbox_exception.dart';
 import 'package:tmail_ui_user/main/exceptions/remote/unknown_remote_exception.dart';
@@ -81,9 +82,9 @@ void main() {
       verifyNever(emailRepository.updateEmailDrafts(any, any, any, any));
     });
 
-    test('null generated email never creates a remote JMAP draft', () async {
+    test('failed generation never creates a remote JMAP draft', () async {
       when(composerRepository.generateEmail(any, withIdentityHeader: anyNamed('withIdentityHeader'), isDraft: anyNamed('isDraft')))
-          .thenAnswer((_) async => null);
+          .thenThrow(StateError('Cannot generate draft email'));
 
       final result = await interactor.execute(createEmailRequest: buildRequest()).toList();
       final failure = result
