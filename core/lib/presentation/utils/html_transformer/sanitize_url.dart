@@ -25,7 +25,9 @@ class SanitizeUrl {
       return originalUrl;
     } catch (e) {
       logWarning('SanitizeUrl::process:Exception = $e');
-      return inputText;
+      // Never turn a decoder failure into an approved link: the caller
+      // renders untrusted email HTML and may otherwise preserve a hostile href.
+      return '';
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:core/data/network/dio_client.dart';
 import 'package:core/presentation/utils/html_transformer/base/dom_transformer.dart';
 import 'package:core/presentation/utils/html_transformer/sanitize_url.dart';
+import 'package:core/utils/external_link_policy.dart';
 import 'package:core/utils/app_logger.dart';
 import 'package:html/dom.dart';
 
@@ -42,15 +43,29 @@ class SanitizeHyperLinkTagInHtmlTransformer extends DomTransformer {
     }
 
     final urlSanitized = _sanitizeUrl.process(url);
-    final hasAddedScheme = url != rawUrl;
-    if (hasAddedScheme && (urlSanitized.isEmpty || _tryDecode(url) == null)) {
-      // Fail closed: the raw value is still relative, so the browser would
-      // resolve it (e.g. `//www.bank.com@evil.com` lands on evil.com).
-      // SanitizeUrl returns its input when decoding fails, so that is a
-      // rejection too.
+    final decoded = _tryDecode(url);
+    if (decoded == null) {
       element.attributes.remove('href');
     } else if (urlSanitized.isNotEmpty) {
+      final parsed = Uri.tryParse(urlSanitized);
+      if (parsed == null ||
+          !ExternalLinkPolicy.canLaunchFromContent(parsed) ||
+          ((parsed.scheme == 'http' || parsed.scheme == 'https') &&
+              parsed.host.isEmpty)) {
+        element.attributes.remove('href');
+        return;
+      }
       element.attributes['href'] = urlSanitized;
+    } else {
+      // Keep legitimate non-web links (mailto/tel/etc.) that the shared
+      // external-link policy allows. Reject all other raw hrefs: leaving
+      // the original DOM attribute unchanged is a fail-open behavior.
+      final parsed = Uri.tryParse(decoded);
+      if (parsed == null ||
+          !parsed.hasScheme ||
+          !ExternalLinkPolicy.canLaunchFromContent(parsed)) {
+        element.attributes.remove('href');
+      }
     }
   }
 
@@ -85,9 +100,11 @@ class SanitizeHyperLinkTagInHtmlTransformer extends DomTransformer {
   }
 
   void _addNoReferrerForRelProperty(Element element) {
-    final rel = element.attributes['rel'];
-    if (rel == null || (!rel.contains('noopener') && !rel.contains('noreferrer'))) {
-      element.attributes['rel'] = 'noreferrer';
-    }
+    final tokens = (element.attributes['rel'] ?? '')
+        .split(RegExp(r'\s+'))
+        .where((token) => token.isNotEmpty && token.toLowerCase() != 'opener')
+        .toSet();
+    tokens.addAll({'noopener', 'noreferrer'});
+    element.attributes['rel'] = tokens.join(' ');
   }
 }

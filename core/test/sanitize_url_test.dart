@@ -109,10 +109,10 @@ void main() {
       );
     });
 
-    test('SHOULD returns original input WHEN get an exception', () {
+    test('SHOULD fail closed WHEN decoding an untrusted URL throws', () {
       // Arrange
       const inputText = "%E0%A4%A";
-      const expectedOutput = inputText;
+      const expectedOutput = '';
 
       // Act
       final result = sanitizeUrl.process(inputText);
