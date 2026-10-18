@@ -159,7 +159,11 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.extra[skipAuthorizationKey] == true) {
-      options.headers.remove(HttpHeaders.authorizationHeader);
+      // Request headers are stored in a case-sensitive Map even though HTTP
+      // header names are case-insensitive. A preset `Authorization` must not
+      // bypass the opt-out used for untrusted discovery endpoints.
+      options.headers.removeWhere((key, _) =>
+          key.toLowerCase() == HttpHeaders.authorizationHeader);
       super.onRequest(options, handler);
       return;
     }
@@ -178,7 +182,9 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       case AuthenticationType.none:
         break;
     }
-    log('AuthorizationInterceptors::onRequest(): URL = ${options.uri} | DATA = ${options.data}');
+    // JMAP requests can carry full draft bodies and credentials; URLs may
+    // include sensitive query strings. Neither belongs in telemetry.
+    log('AuthorizationInterceptors::onRequest(): METHOD = ${options.method}');
     super.onRequest(options, handler);
   }
 
