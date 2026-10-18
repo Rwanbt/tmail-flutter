@@ -121,6 +121,13 @@ void main() {
       expect(result, expectedOutput);
     });
 
+    test('SHOULD never return a private query parameter when URL decoding fails', () {
+      const secret = 'SENTINEL_PRIVATE_JMAP_TOKEN_238';
+      final result = sanitizeUrl.process('https://example.org/?access_token=$secret%E0%A4%A');
+      expect(result, '');
+      expect(result.contains(secret), isFalse);
+    });
+
     test('SHOULD reject URL authority userinfo spoofing in autolink text', () {
       expect(sanitizeUrl.process('https://trusted.example@evil.example/path'), '');
       expect(sanitizeUrl.process('http://alice:password@evil.example/'), '');

@@ -35,8 +35,10 @@ class SanitizeUrl {
         }
       }
       return originalUrl;
-    } catch (e) {
-      logWarning('SanitizeUrl::process:Exception = $e');
+    } catch (_) {
+      // Decoder exceptions can include fragments of the untrusted email body,
+      // including embedded URLs with private query parameters. Do not log it.
+      logWarning('SanitizeUrl::process: rejected malformed URL');
       // Never turn a decoder failure into an approved link: the caller
       // renders untrusted email HTML and may otherwise preserve a hostile href.
       return '';
