@@ -196,7 +196,9 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
     }
 
     logWarning(
-      'AuthorizationInterceptors::onError(): DIO_ERROR = $err | '
+      // DioException.toString() includes the full URL (including query tokens)
+      // and can expose request data. Log only non-sensitive status metadata.
+      'AuthorizationInterceptors::onError(): DIO_ERROR_TYPE = ${err.type} | '
       'statusCode=${err.response?.statusCode} | authType=$_authenticationType',
       webConsoleEnabled: true,
     );
@@ -234,16 +236,14 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
           'statusCode = ${err.response?.statusCode} | '
           'authType = $_authenticationType | '
           'hasConfig = ${_configOIDC != null} | '
-          'hasAttemptedRefresh = $hasAttemptedRefresh | '
-          'url = ${err.requestOptions.uri}',
+          'hasAttemptedRefresh = $hasAttemptedRefresh',
           webConsoleEnabled: true,
         );
       }
       return super.onError(err, handler);
     } catch (e, stackTrace) {
       logError(
-        'AuthorizationInterceptors::onError:Exception: $e',
-        exception: e,
+        'AuthorizationInterceptors::onError:ExceptionType: ${e.runtimeType}',
         stackTrace: stackTrace,
         webConsoleEnabled: true,
       );
@@ -274,8 +274,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       'authType=$_authenticationType | hasConfig=${_configOIDC != null} | '
       'hasToken=${_isTokenNotEmpty(_token)} | hasRefreshToken=${_isRefreshTokenNotEmpty(_token)} | '
       'tokenExpired=${_isTokenExpired(_token)} | hasAttemptedRefresh=$hasAttemptedRefresh | '
-      'statusCode=${err.response?.statusCode} | url=${err.requestOptions.uri}',
-      exception: err,
+      'statusCode=${err.response?.statusCode}',
       stackTrace: err.stackTrace,
       webConsoleEnabled: true,
     );

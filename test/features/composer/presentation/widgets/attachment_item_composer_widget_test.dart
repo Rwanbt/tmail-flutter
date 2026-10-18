@@ -27,6 +27,9 @@ void main() {
           ),
         ),
       ));
+      // Loading the generated localization bundle is asynchronous. The
+      // attachment is built only after AppLocalizationsDelegate.load resolves.
+      await tester.pumpAndSettle();
 
       final label = tester.widget<MiddleEllipsisText>(find.byType(MiddleEllipsisText));
       expect(label.text, 'invoicefdp.exe');

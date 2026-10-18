@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:core/utils/logging/app_logger_registry.dart';
@@ -21,6 +22,26 @@ class _FakeTokenOidcCacheManager extends Fake implements TokenOidcCacheManager {
 class _FakeAccountCacheManager extends Fake implements AccountCacheManager {}
 
 class _FakeIOSSharingManager extends Fake implements IOSSharingManager {}
+
+/// A deterministic transport boundary for the entire Dio interceptor chain.
+/// Flutter widget tests override dart:io HttpClient, so a loopback HttpServer
+/// would not reliably exercise the request without replacing that override.
+class _RecordingJmapAdapter implements HttpClientAdapter {
+  final requests = <RequestOptions>[];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(options);
+    return ResponseBody.fromString('', options.uri.path == '/jmap' ? 200 : 401);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   late AuthorizationInterceptors interceptors;
@@ -98,6 +119,107 @@ void main() {
       expect(logs, isNot(contains('private-draft-text')));
       expect(logs, isNot(contains('token-in-query')));
       expect(logs, isNot(contains('secret')));
+    } finally {
+      registry.resetForTesting();
+    }
+  });
+
+  test('Dio JMAP and discovery transport enforces the auth boundary', () async {
+    // Use the real Dio chain through the HTTP-adapter boundary. No network,
+    // accounts or real credentials are used by this regression test.
+    final seen = <String, List<String?>>{};
+
+    final registry = AppLoggerRegistry.instance;
+    final logs = CapturingLogHandler();
+    registry.resetForTesting();
+    registry.registerHandler(logs);
+    try {
+      for (final useOidc in [false, true]) {
+        final dio = Dio();
+        final adapter = _RecordingJmapAdapter();
+        dio.httpClientAdapter = adapter;
+        final interceptor = AuthorizationInterceptors(
+          dio,
+          _FakeAuthenticationClient(),
+          _FakeTokenOidcCacheManager(),
+          _FakeAccountCacheManager(),
+          _FakeIOSSharingManager(),
+        );
+        if (useOidc) {
+          interceptor.setTokenAndAuthorityOidc(
+            newToken: OIDCFixtures.tokenOidcNotExpiredYet,
+            newConfig: OIDCFixtures.oidcConfiguration,
+          );
+        } else {
+          interceptor.setBasicAuthorization(UserName('fixture-user'), Password('fixture-password'));
+        }
+        dio.interceptors.add(interceptor);
+
+        const baseUrl = 'https://fixture.invalid';
+        final response = await dio.get<void>('$baseUrl/jmap');
+        expect(response.statusCode, 200);
+
+        // A guessed host may already carry preset mixed-case auth headers.
+        // Its opt-out must strip them even when the server responds with 401,
+        // without attempting a token refresh or sending a second request.
+        await expectLater(
+          dio.get<void>(
+            '$baseUrl/.well-known/webfinger?secret=private-discovery-query',
+            options: Options(
+              headers: {'Authorization': 'Bearer should-never-reach-network'},
+              extra: {AuthorizationInterceptors.skipAuthorizationKey: true},
+            ),
+          ),
+          throwsA(isA<DioException>()),
+        );
+        for (final request in adapter.requests) {
+          seen.putIfAbsent(request.uri.path, () => []).add(
+            request.headers.entries
+                .where((entry) => entry.key.toLowerCase() == HttpHeaders.authorizationHeader)
+                .map((entry) => entry.value.toString())
+                .firstOrNull,
+          );
+        }
+        dio.close(force: true);
+      }
+
+      expect(seen['/jmap'], hasLength(2));
+      expect(seen['/jmap']![0], startsWith('Basic '));
+      expect(seen['/jmap']![1], startsWith('Bearer '));
+      expect(seen['/.well-known/webfinger'], [null, null]);
+      final recorded = logs.records.map((entry) => entry.rawMessage).join(' ');
+      expect(recorded, isNot(contains('private-discovery-query')));
+      expect(recorded, isNot(contains('should-never-reach-network')));
+      expect(recorded, isNot(contains('fixture-password')));
+    } finally {
+      registry.resetForTesting();
+    }
+  });
+
+  test('a JMAP 401 does not log the full URL, token query or request body', () async {
+    final registry = AppLoggerRegistry.instance;
+    final logs = CapturingLogHandler();
+    registry.resetForTesting();
+    registry.registerHandler(logs);
+    try {
+      interceptors.onError(
+        DioException(
+          requestOptions: RequestOptions(
+            path: 'https://jmap.example.org/jmap?secret=never-log-this',
+            method: 'POST',
+            data: {'body': 'private-draft-message'},
+          ),
+          response: Response(
+            requestOptions: RequestOptions(path: 'https://jmap.example.org/jmap'),
+            statusCode: 401,
+          ),
+        ),
+        ErrorInterceptorHandler(),
+      );
+      final recorded = logs.records.map((entry) => entry.rawMessage).join(' ');
+      expect(recorded, contains('statusCode=401'));
+      expect(recorded, isNot(contains('never-log-this')));
+      expect(recorded, isNot(contains('private-draft-message')));
     } finally {
       registry.resetForTesting();
     }
