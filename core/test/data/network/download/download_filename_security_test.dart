@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -48,7 +49,7 @@ void main() {
       'CON',
       'aux.txt',
       'COM1.txt',
-      'x' * 256,
+      List.filled(256, 'x').join(),
     ]) {
       test('fails closed for untrusted filename $hostileName', () {
         expect(
@@ -64,7 +65,7 @@ void main() {
       'résumé 📄.pdf',
       'notes.txt',
       '.hidden-attachment',
-      'x' * 255,
+      List.filled(255, 'x').join(),
     ]) {
       test('preserves legitimate attachment filename $safeName', () {
         expect(
