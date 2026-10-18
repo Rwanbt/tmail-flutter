@@ -14,7 +14,6 @@ jobs:
   web_integration_test:
     permissions:
       contents: "read"
-      id-token: "write"
 
     name: Run integration tests for web
     runs-on: ubuntu-latest
