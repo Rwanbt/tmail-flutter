@@ -106,7 +106,11 @@ class WebThreadRobot extends ThreadRobot implements AbstractThreadRobot {
     // Provisioned emails go through asynchronous server-side delivery: the single
     // refresh issued right after provisioning may run before the email lands in
     // the mailbox, and nothing else is guaranteed to reload the list. Periodically
-    // re-query the email list until the tile shows up.
+    // re-query the email list until the tile shows up. Importantly, the normal
+    // refresh uses cached Email/query state: once an empty result was cached
+    // before server-side delivery, repeating that refresh can only return the
+    // same stale state for the full 90-second test timeout. Force a fresh JMAP
+    // read for each bounded retry in this disposable web test harness.
     final sinceLastRefresh = Stopwatch()..start();
     await waitForCondition(
       () async {
@@ -114,7 +118,9 @@ class WebThreadRobot extends ThreadRobot implements AbstractThreadRobot {
         if (emailFinder.evaluate().isNotEmpty) return true;
         if (sinceLastRefresh.elapsed >= _emailListRefreshInterval) {
           sinceLastRefresh.reset();
-          await Get.find<ThreadController>().refreshAllEmail();
+          await Get.find<ThreadController>().refreshAllEmail(
+            shouldClearCache: true,
+          );
         }
         return false;
       },
