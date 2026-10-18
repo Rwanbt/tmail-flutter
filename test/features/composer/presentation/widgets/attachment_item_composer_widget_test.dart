@@ -33,6 +33,9 @@ void main() {
 
       final label = tester.widget<MiddleEllipsisText>(find.byType(MiddleEllipsisText));
       expect(label.text, 'invoicefdp.exe');
+      final translations = AppLocalizations.of(tester.element(find.byType(AttachmentItemComposerWidget)));
+      expect(find.byTooltip('${translations.remove}: invoicefdp.exe'), findsNothing,
+        reason: 'An attachment without a remove callback must not expose an inert accessibility action');
     });
 
     testWidgets('exposes distinct localized remove and preview actions without bidi spoofing', (tester) async {

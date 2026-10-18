@@ -90,14 +90,15 @@ class AttachmentItemComposerWidget extends StatelessWidget with AppLoaderMixin {
           ),
         ),
         const SizedBox(width: AttachmentItemComposerWidgetStyle.space),
-        TMailButtonWidget.fromIcon(
+        if (onDeleteAttachmentAction != null)
+          TMailButtonWidget.fromIcon(
           icon: imagePaths.icCancel,
           tooltipMessage: '${translations.remove}: $accessibleName',
           iconSize: AttachmentItemComposerWidgetStyle.deleteIconSize,
           borderRadius: AttachmentItemComposerWidgetStyle.deleteIconRadius,
           padding: AttachmentItemComposerWidgetStyle.deleteIconPadding,
           iconColor: AttachmentItemComposerWidgetStyle.deleteIconColor,
-          onTapActionCallback: () => onDeleteAttachmentAction?.call(uploadTaskId),
+          onTapActionCallback: () => onDeleteAttachmentAction!(uploadTaskId),
         )
       ],
     );
