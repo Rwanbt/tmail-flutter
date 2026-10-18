@@ -27,7 +27,10 @@ class _FakeIOSSharingManager extends Fake implements IOSSharingManager {}
 /// Flutter widget tests override dart:io HttpClient, so a loopback HttpServer
 /// would not reliably exercise the request without replacing that override.
 class _RecordingJmapAdapter implements HttpClientAdapter {
+  final int jmapStatusCode;
   final requests = <RequestOptions>[];
+
+  _RecordingJmapAdapter({this.jmapStatusCode = 200});
 
   @override
   Future<ResponseBody> fetch(
@@ -36,7 +39,10 @@ class _RecordingJmapAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
-    return ResponseBody.fromString('', options.uri.path == '/jmap' ? 200 : 401);
+    return ResponseBody.fromString(
+      '',
+      options.uri.path == '/jmap' ? jmapStatusCode : 401,
+    );
   }
 
   @override
@@ -199,28 +205,48 @@ void main() {
   test('a JMAP 401 does not log the full URL, token query or request body', () async {
     final registry = AppLoggerRegistry.instance;
     final logs = CapturingLogHandler();
+    final dio = Dio();
+    final adapter = _RecordingJmapAdapter(jmapStatusCode: 401);
+    dio.httpClientAdapter = adapter;
+    final interceptor = AuthorizationInterceptors(
+      dio,
+      _FakeAuthenticationClient(),
+      _FakeTokenOidcCacheManager(),
+      _FakeAccountCacheManager(),
+      _FakeIOSSharingManager(),
+    )..setBasicAuthorization(UserName('alice'), Password('secret'));
+    dio.interceptors.add(interceptor);
     registry.resetForTesting();
     registry.registerHandler(logs);
     try {
-      interceptors.onError(
-        DioException(
-          requestOptions: RequestOptions(
-            path: 'https://jmap.example.org/jmap?secret=never-log-this',
-            method: 'POST',
-            data: {'body': 'private-draft-message'},
-          ),
-          response: Response(
-            requestOptions: RequestOptions(path: 'https://jmap.example.org/jmap'),
-            statusCode: 401,
+      // Drive the actual Dio request/error pipeline. Directly invoking
+      // onError with an unattached ErrorInterceptorHandler leaves its
+      // rejected Future unobserved and fails the VM test asynchronously.
+      await expectLater(
+        dio.post<void>(
+          'https://jmap.example.org/jmap?secret=never-log-this',
+          data: {'body': 'private-draft-message'},
+        ),
+        throwsA(
+          isA<DioException>().having(
+            (error) => error.response?.statusCode,
+            'JMAP response status',
+            401,
           ),
         ),
-        ErrorInterceptorHandler(),
       );
+
+      expect(adapter.requests, hasLength(1),
+          reason: 'A basic-auth 401 must not silently retry or refresh');
+      expect(adapter.requests.single.uri.query, 'secret=never-log-this');
+      expect(adapter.requests.single.data, {'body': 'private-draft-message'});
       final recorded = logs.records.map((entry) => entry.rawMessage).join(' ');
       expect(recorded, contains('statusCode=401'));
       expect(recorded, isNot(contains('never-log-this')));
       expect(recorded, isNot(contains('private-draft-message')));
+      expect(recorded, isNot(contains('jmap.example.org')));
     } finally {
+      dio.close(force: true);
       registry.resetForTesting();
     }
   });
