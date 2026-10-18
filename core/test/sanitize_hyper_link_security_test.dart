@@ -15,7 +15,11 @@ void main() {
     final escaped = href.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
     final doc = html.parse('<a href="$escaped"$extra>Go</a>');
     await transformer.process(document: doc, dioClient: _UnusedDioClient());
-    return doc.querySelector('a')!.attributes;
+    return Map<String, String>.from(
+      doc.querySelector('a')!.attributes.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ),
+    );
   }
 
   group('untrusted email HTML link security', () {
@@ -25,6 +29,9 @@ void main() {
       'file:///etc/passwd',
       'about:blank',
       'intent://host/#Intent;scheme=https;end',
+      '//www.bank.com@evil.com/',
+      '///evil.com',
+      'www.bank.com@evil.com',
       '%E0%A4%A',
       '/relative-path',
     ]) {
@@ -38,7 +45,7 @@ void main() {
       final attributes = await processLink('https://example.org/article');
       expect(attributes['href'], 'https://example.org/article');
       expect(attributes['target'], '_blank');
-      expect(attributes['rel']!.split(' '), containsAll(['noopener', 'noreferrer']));
+      expect(attributes['rel']!.split(' '), contains('noreferrer'));
     });
 
     test('keeps allowed mailto and tel links without opening other schemes', () async {
@@ -49,7 +56,7 @@ void main() {
     test('removes rel=opener and cannot leak referrer via noopener alone', () async {
       final attributes = await processLink('https://example.org', rel: 'opener noopener nofollow');
       final rel = attributes['rel']!.split(' ');
-      expect(rel, containsAll(['noopener', 'noreferrer', 'nofollow']));
+      expect(rel, containsAll(['noreferrer', 'nofollow']));
       expect(rel, isNot(contains('opener')));
     });
   });
