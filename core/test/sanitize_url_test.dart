@@ -120,5 +120,15 @@ void main() {
       // Assert
       expect(result, expectedOutput);
     });
+
+    test('SHOULD reject URL authority userinfo spoofing in autolink text', () {
+      expect(sanitizeUrl.process('https://trusted.example@evil.example/path'), '');
+      expect(sanitizeUrl.process('http://alice:password@evil.example/'), '');
+    });
+
+    test('SHOULD retain legitimate HTTPS host with an explicit port', () {
+      expect(sanitizeUrl.process('https://example.org:8443/inbox'),
+          'https://example.org:8443/inbox');
+    });
   });
 }
