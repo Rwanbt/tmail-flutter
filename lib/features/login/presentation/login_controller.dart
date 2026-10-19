@@ -138,7 +138,8 @@ class LoginController extends ReloadableController {
   void onReady() {
     super.onReady();
     final arguments = Get.arguments;
-    log('LoginController::onReady: arguments = $arguments');
+    // LoginArguments may contain cached credentials. Never print its contents.
+    log('LoginController::onReady: processing navigation arguments');
     if (arguments is LoginArguments) {
       loginFormType.value =
           arguments.loginFormType == LoginFormType.passwordForm
@@ -159,7 +160,8 @@ class LoginController extends ReloadableController {
 
   @override
   void handleFailureViewState(Failure failure) {
-    log('$runtimeType::handleFailureViewState():Failure = $failure');
+    // Failure.toString() may include an authentication URL or response data.
+    log('LoginController::handleFailureViewState: authentication failed');
     if (failure is GetAuthenticationInfoFailure) {
       getAuthenticatedAccountAction();
     } else if (failure is CheckOIDCIsAvailableFailure) {
@@ -194,7 +196,7 @@ class LoginController extends ReloadableController {
 
   @override
   void handleSuccessViewState(Success success) {
-    log('$runtimeType::handleSuccessViewState:Success = ${success.runtimeType}');
+    log('LoginController::handleSuccessViewState: authentication succeeded');
     if (success is GetAuthenticationInfoSuccess) {
       _getStoredOidcConfiguration();
     } else if (success is GetStoredOidcConfigurationSuccess) {
@@ -295,7 +297,8 @@ class LoginController extends ReloadableController {
   }
 
   void _handlePendingDeepLinkDataStream(DeepLinkData? deepLinkData) {
-    log('LoginController::_handlePendingDeepLinkDataStream:DeepLinkData = $deepLinkData');
+    // Deep links may include single-use login tokens and authorization codes.
+    log('LoginController::_handlePendingDeepLinkDataStream: received callback');
     _deepLinksManager?.handleDeepLinksWhenAppRunning(
       deepLinkData: deepLinkData,
       onSuccessCallback: (deepLinkData) {
@@ -417,7 +420,7 @@ class LoginController extends ReloadableController {
 
   void handleLoginPressed(BuildContext context) {
     KeyboardUtils.hideKeyboard(context);
-    log('LoginController::handleLoginPressed:_currentBaseUrl: $_currentBaseUrl | _username: $_username | hasPassword: ${_password != null}');
+    log('LoginController::handleLoginPressed: validating credentials');
     if (_currentBaseUrl == null) {
       consumeState(Stream.value(Left(AuthenticationUserFailure(CanNotFoundBaseUrl()))));
     } else if (_username == null) {
@@ -444,7 +447,7 @@ class LoginController extends ReloadableController {
 
   void getOIDCConfiguration(OIDCResponse oidcResponse) {
     final loginHint = PlatformInfo.isMobile ? _username?.value : null;
-    log('$runtimeType::getOIDCConfiguration:loginHint = $loginHint');
+    log('LoginController::getOIDCConfiguration: requesting configuration');
     consumeState(
       _getOIDCConfigurationInteractor.execute(
         oidcResponse,
@@ -515,13 +518,13 @@ class LoginController extends ReloadableController {
 
   void selectBaseUrlFromSuggestion(String url) {
     final validUrl = url.isValid() ? url.removePrefix() : url;
-    log('LoginController::selectBaseUrlFromSuggestion:validUrl: $validUrl');
+    log('LoginController::selectBaseUrlFromSuggestion: selected server');
     urlInputController.text = validUrl;
     onBaseUrlChange(validUrl);
   }
 
   void _storeBaseUrlToCache(Uri uri) {
-    log('LoginController::_storeBaseUrlToCache:uri: $uri');
+    log('LoginController::_storeBaseUrlToCache: persisting server choice');
     _saveLoginUrlOnMobileInteractor.execute(RecentLoginUrl.now(uri.toString()));
   }
 
@@ -537,7 +540,7 @@ class LoginController extends ReloadableController {
   }
 
   void selectUsernameFromSuggestion(RecentLoginUsername recentLoginUsername) {
-    log('LoginController::selectUsernameFromSuggestion():recentLoginUsername: $recentLoginUsername');
+    log('LoginController::selectUsernameFromSuggestion: selected account');
     usernameInputController.text = recentLoginUsername.username;
     _username = UserName(recentLoginUsername.username);
 
@@ -547,7 +550,7 @@ class LoginController extends ReloadableController {
   }
 
   void _storeUsernameToCache(String userName) {
-    log('LoginController::_storeUsername():userName: $userName');
+    log('LoginController::_storeUsername: persisting account choice');
     _saveLoginUsernameOnMobileInteractor.execute(RecentLoginUsername.now(userName));
   }
 
@@ -567,7 +570,7 @@ class LoginController extends ReloadableController {
     : _baseUri;
 
   void invokeDNSLookupToGetJmapUrl() {
-    log('LoginController::invokeDNSLookupToGetJmapUrl:_username $_username');
+    log('LoginController::invokeDNSLookupToGetJmapUrl: resolving mail server');
     FocusManager.instance.primaryFocus?.unfocus();
 
     if (_username == null) {
@@ -656,7 +659,7 @@ class LoginController extends ReloadableController {
       _baseUri = null;
     } else {
       if (value.isValid()) {
-        log('LoginController::onBaseUrlChange:value: $value');
+        log('LoginController::onBaseUrlChange: accepted valid server address');
         urlInputController.text = value.removePrefix();
       }
       _baseUri = Uri.tryParse(value.formatURLValid());
