@@ -27,6 +27,17 @@ void main() {
 
       expect(inlineAttachments.resolveUploadedImage(attributes), isNull);
     });
+
+    test('resolves an encoded Content-ID with an uppercase CID scheme', () {
+      final image = Attachment(blobId: Id('blob-encoded'), cid: 'photo@example.org');
+      final attributes = <Object, String>{
+        'id': 'CID:photo%40example.org',
+        'src': 'data:image/png;base64,AAAA',
+      };
+
+      expect({'photo@example.org': image}.resolveUploadedImage(attributes), image);
+      expect(attributes, {'src': 'cid:photo@example.org'});
+    });
   });
 
   group('InlineImageCidExtension::replaceUploadedImagesWithCid', () {
@@ -46,6 +57,28 @@ void main() {
 
       expect(html, content);
       expect(inlineImages, {uploaded});
+    });
+
+    test('recovers inline images with encoded, uppercase and bracketed Content-IDs after reload', () {
+      final image = Attachment(blobId: Id('blob-encoded'), cid: '<photo@example.org>');
+      final attachments = {'<photo@example.org>': image};
+      const content = '<p><img src="CID:photo%40example.org"></p>';
+
+      final (html, inlineImages) = attachments.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, {image});
+    });
+
+    test('does not attach unrelated images or malformed CID references', () {
+      const content = '<img src="https://example.org/cid:photo%40example.org">'
+          '<img src="cid:photo%ZZexample.org">';
+      final image = Attachment(blobId: Id('blob-encoded'), cid: 'photo@example.org');
+      final (html, inlineImages) =
+          {'photo@example.org': image}.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, isEmpty);
     });
 
     test('keeps an image without an upload in base64', () {

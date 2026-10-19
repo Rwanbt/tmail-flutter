@@ -73,6 +73,28 @@ void main() {
       expect(result.value2.first.cid, 'test123');
     });
 
+    test('retains an uppercase percent-encoded CID attachment when preparing an email', () async {
+      const htmlContent = '<p><img src="CID:photo%40example.org"></p>';
+      final inlineAttachments = {
+        '<photo@example.org>': Attachment(
+          blobId: Id('photo-blob'),
+          type: MediaType('image', 'png'),
+          disposition: ContentDisposition.inline,
+          cid: '<photo@example.org>',
+        ),
+      };
+
+      final result = await htmlAnalyzer.replaceImageBase64ToImageCID(
+        emailContent: htmlContent,
+        inlineAttachments: inlineAttachments,
+        uploadUri: null,
+      );
+
+      expect(result.value2.length, 1);
+      expect(result.value2.single.blobId, Id('photo-blob'));
+      verifyNever(mockFileUploader.uploadAttachment(any, any, any));
+    });
+
     test(
       'When HTML content has an image with existing CID,\n'
       'but inlineAttachments is empty,\n'
