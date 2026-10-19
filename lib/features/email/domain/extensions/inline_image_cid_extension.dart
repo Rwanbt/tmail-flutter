@@ -14,10 +14,15 @@ String? _normalizeContentId(String? value, {bool fromUrl = false}) {
     if (!candidate.toLowerCase().startsWith(inlineImageCidPrefix)) return null;
     candidate = candidate.substring(inlineImageCidPrefix.length).trim();
   }
-  try {
-    candidate = Uri.decodeComponent(candidate).trim();
-  } on FormatException {
-    return null;
+  if (fromUrl) {
+    try {
+      candidate = Uri.decodeComponent(candidate).trim();
+    } on FormatException {
+      return null;
+    } on ArgumentError {
+      // Uri.decodeComponent throws ArgumentError for invalid percent escapes.
+      return null;
+    }
   }
   if (candidate.startsWith('<') && candidate.endsWith('>')) {
     candidate = candidate.substring(1, candidate.length - 1).trim();
@@ -47,7 +52,10 @@ extension InlineImageCidExtension on Map<String, Attachment> {
     final attachment = _findInlineAttachment(cid);
     if (attachment == null) return null;
 
-    imgAttributes['src'] = '$inlineImageCidPrefix$cid';
+    // A literal '%' is legal in a MIME Content-ID but must be escaped in a URL.
+    // Preserve '@' in the familiar cid:address form while escaping URI specials.
+    final cidUrl = Uri.encodeComponent(cid).replaceAll('%40', '@');
+    imgAttributes['src'] = '$inlineImageCidPrefix$cidUrl';
     imgAttributes.remove('id');
     return attachment;
   }
@@ -70,7 +78,9 @@ extension InlineImageCidExtension on Map<String, Attachment> {
     final cidImgTags = document.querySelectorAll('img[src]');
 
     final inlineImages = {
-      ...base64ImgTags.map((img) => resolveUploadedImage(img.attributes)).nonNulls,
+      ...base64ImgTags
+          .map((img) => resolveUploadedImage(img.attributes))
+          .nonNulls,
       ...referencedBy(cidImgTags),
     };
     if (inlineImages.isEmpty) return (html, const {});
