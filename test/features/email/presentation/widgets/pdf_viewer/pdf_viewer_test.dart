@@ -386,14 +386,17 @@ void main() {
     );
 
     testWidgets(
-      'should show the error itself for any other load failure',
+      'uses a localized safe error instead of exposing PDF parser diagnostics',
       (tester) async {
         final pdfViewer = await pumpPdfViewer(tester);
-        const error = PdfException('Failed to load PDF document');
+        const error = PdfException(
+          'Failed to load https://mail.example/download?access_token=private-pdf-token',
+        );
 
         final banner = buildErrorBanner(tester, pdfViewer, error);
 
-        expect(banner.textContent, error.toString());
+        expect(banner.textContent, appLocalizations.noPreviewAvailable);
+        expect(banner.textContent, isNot(contains('private-pdf-token')));
       },
     );
   });
