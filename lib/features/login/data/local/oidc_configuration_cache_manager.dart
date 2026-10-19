@@ -36,7 +36,7 @@ class OidcConfigurationCacheManager extends CacheManagerInteraction {
   }
 
   Future<void> persistOidcConfiguration(OIDCConfiguration oidcConfiguration) async {
-    log('OidcConfigurationCacheManager::persistOidcConfiguration(): $oidcConfiguration');
+    log('OidcConfigurationCacheManager::persistOidcConfiguration: storing configuration');
     await _oidcConfigurationCacheClient.insertItem(
       CachingConstants.oidcConfigurationCacheKeyName,
       oidcConfiguration.toOidcConfigurationCache(),
@@ -59,8 +59,8 @@ class OidcConfigurationCacheManager extends CacheManagerInteraction {
       log('$runtimeType::migrateHiveToIsolatedHive(): Length of legacyMapItems: ${legacyMapItems.length}');
       await _oidcConfigurationCacheClient.insertMultipleItem(legacyMapItems);
       log('$runtimeType::migrateHiveToIsolatedHive(): ✅ Migrate Hive box "${_oidcConfigurationCacheClient.tableName}" → IsolatedHive DONE');
-    } catch (e) {
-      logWarning('$runtimeType::migrateHiveToIsolatedHive(): ❌ Migrate Hive box "${_oidcConfigurationCacheClient.tableName}" → IsolatedHive FAILED, Error: $e');
+    } catch (_) {
+      logWarning('OidcConfigurationCacheManager::migrateHiveToIsolatedHive: migration failed');
     }
   }
 }

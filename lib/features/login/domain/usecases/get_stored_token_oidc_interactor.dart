@@ -34,8 +34,7 @@ class GetStoredTokenOidcInteractor {
       final baseUrl = futureValue[0] as Uri;
       final tokenOidc = futureValue[1] as TokenOIDC;
       final oidcConfiguration = futureValue[2] as OIDCConfiguration;
-      log('GetStoredTokenOidcInteractor::execute(): tokenIdHash: ${tokenOidc.tokenIdHash} | EXPIRED_TIME = ${tokenOidc.expiredTime}');
-      log('GetStoredTokenOidcInteractor::execute(): oidcConfiguration: $oidcConfiguration');
+      log('GetStoredTokenOidcInteractor::execute(): stored token and configuration loaded');
 
       if (_isCredentialValid(baseUrl)) {
         yield Right(GetStoredTokenOidcSuccess(
@@ -47,19 +46,17 @@ class GetStoredTokenOidcInteractor {
       } else {
         yield Left(GetStoredTokenOidcFailure(InvalidBaseUrl()));
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       // Startup token read failed → the app silently routes to the login form.
       // Report to remote logging on MOBILE only: that is where a missing token
       // means a real "logged out overnight" regression.
       final message =
         'GetStoredTokenOidcInteractor::execute(): '
         'startup_token_unavailable=true | reason=${_classifyStartupFailure(e)} | '
-        'accountId=${personalAccount.id} | error=$e';
+        'error_type=${e.runtimeType}';
       if (PlatformInfo.isMobile) {
         logError(
           message,
-          exception: e,
-          stackTrace: stackTrace,
           extras: {
             'startup_token_unavailable': true,
             'reason': _classifyStartupFailure(e),

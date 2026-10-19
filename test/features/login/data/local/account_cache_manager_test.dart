@@ -1,3 +1,4 @@
+import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jmap_dart_client/jmap/account_id.dart';
 import 'package:jmap_dart_client/jmap/core/id.dart';
@@ -8,6 +9,7 @@ import 'package:tmail_ui_user/features/login/data/local/account_cache_manager.da
 import 'package:tmail_ui_user/features/login/data/model/account_cache.dart';
 
 import 'memory_account_cache_client.dart';
+import '../../../../fixtures/capturing_log_handler.dart';
 
 void main() {
   late AccountCacheManager accountCacheManager;
@@ -17,6 +19,32 @@ void main() {
     setUp(() {
       accountCacheClient = MemoryAccountCacheClient();
       accountCacheManager = AccountCacheManager(accountCacheClient);
+    });
+
+    test('cache selection logs never expose an account address or server URL', () async {
+      final registry = AppLoggerRegistry.instance;
+      final logs = CapturingLogHandler();
+      registry.resetForTesting();
+      registry.registerHandler(logs);
+      try {
+        final account = PersonalAccount(
+          'private-account-id',
+          AuthenticationType.oidc,
+          isSelected: true,
+          accountId: AccountId(Id('private-server-account-id')),
+          apiUrl: 'https://mail.invalid/jmap?token=private-code',
+          userName: UserName('alice-private@example.invalid'),
+        );
+        await accountCacheManager.setCurrentAccount(account);
+        expect(await accountCacheManager.getCurrentAccount(), account);
+        final messages = logs.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('getCurrentAccount'));
+        expect(messages, isNot(contains('alice-private')));
+        expect(messages, isNot(contains('private-account-id')));
+        expect(messages, isNot(contains('private-code')));
+      } finally {
+        registry.resetForTesting();
+      }
     });
 
     test('WHEN cache have no account \n'

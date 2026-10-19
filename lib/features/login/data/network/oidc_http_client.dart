@@ -42,14 +42,14 @@ class OIDCHttpClient {
           extra: {AuthorizationInterceptors.skipAuthorizationKey: true},
         ),
       );
-      log('OIDCHttpClient::checkOIDCIsAvailable(): RESULT: $result');
+      log('OIDCHttpClient::checkOIDCIsAvailable(): discovery response received');
       if (result is Map<String, dynamic>) {
         return OIDCResponse.fromJson(result);
       } else {
         return OIDCResponse.fromJson(jsonDecode(result));
       }
-    } on FormatException catch (exception) {
-      log('checkOIDCIsAvailable(): error while parsing server response (JSON expected): ${exception.message}');
+    } on FormatException {
+      logWarning('OIDCHttpClient::checkOIDCIsAvailable(): invalid discovery response');
       throw InvalidOIDCResponseException();
     } on DioException catch (exception) {
       if (exception.error is HandshakeException) {
@@ -73,7 +73,7 @@ class OIDCHttpClient {
     }
     final authority = oidcResponse.links[0].href.toString();
     final isTWP = authority == AppConfig.saasRegistrationUrl;
-    log('OIDCHttpClient::getOIDCConfiguration():authority: $authority');
+    log('OIDCHttpClient::getOIDCConfiguration(): authority selected');
     return OIDCConfiguration(
       authority: authority,
       clientId: OIDCConstant.clientId,
@@ -84,7 +84,7 @@ class OIDCHttpClient {
 
   Future<OIDCDiscoveryResponse> discoverOIDC(OIDCConfiguration configuration) async {
     final result = await _dioClient.getWithNewDio(configuration.discoveryUrl);
-    log('OIDCHttpClient::discoverOIDC(): RESULT: $result');
+    log('OIDCHttpClient::discoverOIDC(): provider metadata received');
     if (result is Map<String, dynamic>) {
       return OIDCDiscoveryResponse.fromJson(result);
     } else {

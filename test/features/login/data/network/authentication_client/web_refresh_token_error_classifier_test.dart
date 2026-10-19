@@ -176,14 +176,14 @@ void main() {
     });
 
     group('ArgumentError oauth fields', () {
-      test('parses code and description for invalid_grant', () {
+      test('parses the safe OAuth code but excludes provider descriptions', () {
         final error = ArgumentError(
           'Invalid argument(s): Failed to get token: [error: invalid_grant, description: Token has expired]',
         );
         final extras = classifier.buildSentryExtras(error);
         expect(extras['auth_error_type'], equals('web_server_rejected_refresh'));
         expect(extras['oauth_error_code'], equals('invalid_grant'));
-        expect(extras['oauth_error_description'], equals('Token has expired'));
+        expect(extras.containsKey('oauth_error_description'), isFalse);
       });
 
       test('parses code and description for token_failed with RFC 6749 desc (server rejection)', () {
@@ -193,7 +193,7 @@ void main() {
         final extras = classifier.buildSentryExtras(error);
         expect(extras['auth_error_type'], equals('web_server_rejected_refresh'));
         expect(extras['oauth_error_code'], equals('token_failed'));
-        expect(extras['oauth_error_description'], equals('invalid_request'));
+        expect(extras.containsKey('oauth_error_description'), isFalse);
       });
 
       test('returns unknown for unrecognized message format', () {
@@ -201,13 +201,22 @@ void main() {
         final extras = classifier.buildSentryExtras(error);
         expect(extras['auth_error_type'], equals('web_token_unknown_error'));
         expect(extras['oauth_error_code'], equals('unknown'));
-        expect(extras['oauth_error_description'], equals('unknown'));
+        expect(extras.containsKey('oauth_error_description'), isFalse);
       });
 
       test('returns unknown when message is null', () {
         final extras = classifier.buildSentryExtras(ArgumentError(null));
         expect(extras['oauth_error_code'], equals('unknown'));
-        expect(extras['oauth_error_description'], equals('unknown'));
+        expect(extras.containsKey('oauth_error_description'), isFalse);
+      });
+
+      test('does not export unknown codes or sensitive descriptions', () {
+        final extras = classifier.buildSentryExtras(ArgumentError(
+          'Failed to get token: [error: code=secret, description: https://callback.invalid/?token=private]',
+        ));
+        expect(extras['oauth_error_code'], 'other');
+        expect(extras.toString(), isNot(contains('private')));
+        expect(extras.toString(), isNot(contains('secret')));
       });
     });
   });

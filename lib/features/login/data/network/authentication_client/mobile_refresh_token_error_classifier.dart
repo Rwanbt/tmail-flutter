@@ -38,8 +38,7 @@ class MobileRefreshTokenErrorClassifier extends RefreshTokenErrorClassifier {
   Map<String, dynamic> buildPlatformSentryExtras(Object error) {
     if (error is! OAuthAuthorizationError) return const {};
     return {
-      'oauth_error_code': error.error,
-      'oauth_error_description': error.message ?? 'unknown',
+      'oauth_error_code': RefreshTokenErrorClassifier.safeOAuthErrorCode(error.error),
     };
   }
 }

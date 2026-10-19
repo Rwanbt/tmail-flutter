@@ -125,16 +125,15 @@ void main() {
   });
 
   group('MobileRefreshTokenErrorClassifier::buildSentryExtras', () {
-    test('tags a rejection and exposes the OAuth code and description', () {
+    test('tags a rejection without exporting the provider description', () {
       expect(
         classifier.buildSentryExtras(const OAuthAuthorizationError(
           error: 'invalid_grant',
-          errorDescription: 'The refresh token has been revoked',
+          errorDescription: 'https://callback.example/?code=secret-code',
         )),
         {
           'auth_error_type': 'token_endpoint_oauth_rejected',
           'oauth_error_code': 'invalid_grant',
-          'oauth_error_description': 'The refresh token has been revoked',
         },
       );
     });
@@ -145,7 +144,19 @@ void main() {
         {
           'auth_error_type': 'token_endpoint_oauth_unknown_error',
           'oauth_error_code': 'server_error',
-          'oauth_error_description': 'unknown',
+        },
+      );
+    });
+
+    test('replaces unknown provider OAuth codes with non-sensitive metadata', () {
+      expect(
+        classifier.buildSentryExtras(const OAuthAuthorizationError(
+          error: 'code=private-oauth-token',
+          errorDescription: 'refresh_token=private-refresh-token',
+        )),
+        {
+          'auth_error_type': 'token_endpoint_oauth_unknown_error',
+          'oauth_error_code': 'other',
         },
       );
     });

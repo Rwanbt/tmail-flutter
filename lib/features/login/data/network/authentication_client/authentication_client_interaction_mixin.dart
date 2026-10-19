@@ -76,7 +76,8 @@ mixin AuthenticationClientInteractionMixin {
 
   dynamic handleException(dynamic exception) {
     if (exception is FlutterAppAuthPlatformException) {
-      logWarning('$runtimeType::handleException: ErrorDetails = ${exception.platformErrorDetails.toString()}');
+      // Plugin error descriptions can echo authorization codes and callback URIs.
+      logWarning('AuthenticationClientInteractionMixin::handleException: OAuth request failed');
       final errorCode = exception.platformErrorDetails.error;
       if (errorCode != null) {
         final oauthErrorCode = OAuthAuthorizationError.fromErrorCode(

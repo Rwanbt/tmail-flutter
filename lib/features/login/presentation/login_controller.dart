@@ -230,7 +230,8 @@ class LoginController extends ReloadableController {
 
   @override
   void handleUrgentException({Failure? failure, Exception? exception}) {
-    logWarning('LoginController::handleUrgentException:Exception: $exception | Failure: $failure');
+    // Exceptions and failure objects may serialize OIDC callback URLs or tokens.
+    logWarning('LoginController::handleUrgentException: authentication failed');
     if (failure is CheckOIDCIsAvailableFailure) {
       _handleCheckOIDCIsAvailableFailure(failure);
     } else if (failure is GetOIDCConfigurationFromBaseUrlFailure) {
@@ -264,8 +265,8 @@ class LoginController extends ReloadableController {
     if (PlatformInfo.isWeb) {
       try {
         await cachingManager.clearAllEmailAndStateCache();
-      } catch (e) {
-        logWarning('$runtimeType::handleReloaded: Failed to clear cache: $e');
+      } catch (_) {
+        logWarning('LoginController::handleReloaded: failed to clear cache');
       }
     }
 
@@ -332,8 +333,8 @@ class LoginController extends ReloadableController {
     try {
       featureFailure = failure;
       tryGetOIDCConfigurationFromBaseUrl(_currentBaseUrl!);
-    } catch (e) {
-      logWarning('LoginController::_handleCheckOIDCIsAvailableFailure:Exception = $e');
+    } catch (_) {
+      logWarning('LoginController::_handleCheckOIDCIsAvailableFailure: discovery failed');
       handleOIDCIsNotAvailable(failure);
     }
   }

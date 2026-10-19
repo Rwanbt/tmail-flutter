@@ -24,7 +24,7 @@ class AuthenticateOidcOnBrowserInteractor {
           config.scopes);
       yield Right<Failure, Success>(AuthenticateOidcOnBrowserSuccess());
     } catch (e) {
-      logWarning('AuthenticateOidcOnBrowserInteractor::execute(): $e');
+      logWarning('AuthenticateOidcOnBrowserInteractor::execute(): redirect failed');
       yield Left<Failure, Success>(
         AuthenticateOidcOnBrowserFailure(e, ssoConfirmed: config.ssoConfirmed),
       );
