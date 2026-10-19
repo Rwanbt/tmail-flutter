@@ -14,5 +14,6 @@ void main() {
       password: const String.fromEnvironment('PASSWORD'),
     ),
     tags: [TestTags.android, TestTags.ios, TestTags.web],
+    seedTestCredentials: false,
   );
 }

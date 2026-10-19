@@ -15,9 +15,9 @@ abstract class BaseTestScenario extends BaseScenario with ScenarioUtilsMixin {
 
   const BaseTestScenario(super.$, this.robots);
 
-  // Seeds credentials directly into app storage so HomeController skips login.
-  // Tests run in the same process as the app, so Get.find<> works here.
-  Future<void> _seedTestCredentials() async {
+  // Called by TestBase after dependency preload but BEFORE mounting TMailApp.
+  // The first home-route build must see the seeded credentials as well.
+  static Future<void> seedTestCredentials() async {
     const hostUrl = String.fromEnvironment('BASIC_AUTH_URL');
     const email = String.fromEnvironment('BASIC_AUTH_EMAIL');
     const password = String.fromEnvironment('PASSWORD');
@@ -39,7 +39,6 @@ abstract class BaseTestScenario extends BaseScenario with ScenarioUtilsMixin {
 
   @override
   Future<void> execute() async {
-    await _seedTestCredentials();
     await runTestLogic();
   }
 
