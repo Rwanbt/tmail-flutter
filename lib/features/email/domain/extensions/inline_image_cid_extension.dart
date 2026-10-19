@@ -78,9 +78,7 @@ extension InlineImageCidExtension on Map<String, Attachment> {
     final cidImgTags = document.querySelectorAll('img[src]');
 
     final inlineImages = {
-      ...base64ImgTags
-          .map((img) => resolveUploadedImage(img.attributes))
-          .nonNulls,
+      ...base64ImgTags.map((img) => resolveUploadedImage(img.attributes)).nonNulls,
       ...referencedBy(cidImgTags),
     };
     if (inlineImages.isEmpty) return (html, const {});
