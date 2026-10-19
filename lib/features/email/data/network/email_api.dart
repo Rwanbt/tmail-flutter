@@ -378,7 +378,9 @@ class EmailAPI
           // The PDF route closes its broadcast progress controller on dispose.
           // A late Dio progress callback after cancellation must not add to it.
           if (cancelToken?.isCancelled == true ||
-              onReceiveController?.isClosed == true) return;
+              onReceiveController?.isClosed == true) {
+            return;
+          }
           log('EmailAPI::downloadFileForWeb(): downloaded = $downloaded | total: $total');
           double progress = 0;
           if (downloaded > 0 && total >= downloaded) {
@@ -435,7 +437,9 @@ class EmailAPI
         responseType: ResponseType.bytes),
       onReceiveProgress: (downloaded, total) {
         if (cancelToken?.isCancelled == true ||
-            onReceiveController?.isClosed == true) return;
+            onReceiveController?.isClosed == true) {
+          return;
+        }
         log('EmailAPI::downloadFileForWeb(): downloaded = $downloaded | total: $total');
         double progress = 0;
         if (downloaded > 0 && total >= downloaded) {

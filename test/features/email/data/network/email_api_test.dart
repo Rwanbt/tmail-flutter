@@ -77,10 +77,14 @@ void main() {
       registry.registerHandler(captured);
       final controller = StreamController<Either<Failure, Success>>.broadcast();
       await controller.close();
+      final attachment = Attachment(blobId: Id('blob'), name: 'document.pdf');
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate =
+          'https://mail.invalid/download/{accountId}/{blobId}?access_token=private-token';
       try {
         when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
         when(dioClient.get(
-          any,
+          attachment.getDownloadUrl(downloadTemplate, accountId),
           options: anyNamed('options'),
           cancelToken: anyNamed('cancelToken'),
           onReceiveProgress: anyNamed('onReceiveProgress'),
@@ -93,9 +97,9 @@ void main() {
 
         final bytes = await emailApi.downloadAttachmentForWeb(
           DownloadTaskId('attachment-task'),
-          Attachment(blobId: Id('blob'), name: 'document.pdf'),
-          AccountId(Id('account')),
-          'https://mail.invalid/download/{accountId}/{blobId}?access_token=private-token',
+          attachment,
+          accountId,
+          downloadTemplate,
           AccountRequest.withBasic(
             userName: UserName('alice@example.invalid'),
             password: Password('private-password'),
