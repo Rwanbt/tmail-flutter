@@ -43,7 +43,7 @@ class TryGuessingWebFingerInteractor {
         yield Right(TryGuessingWebFingerSuccess(firstNonNullResponse));
       }
     } catch (e) {
-      logWarning('$runtimeType::execute(): Exception = $e');
+      logWarning('TryGuessingWebFingerInteractor::execute: provider discovery failed');
       yield Left(TryGuessingWebFingerFailure(exception: e));
     }
   }

@@ -30,7 +30,7 @@ class GetOIDCConfigurationInteractor {
         GetOIDCConfigurationSuccess(configWithLoginHint),
       );
     } catch (e) {
-      logWarning('$runtimeType::execute():oidcResponse = ${oidcResponse.runtimeType} | Exception = $e');
+      logWarning('GetOIDCConfigurationInteractor::execute: failed | response_type=${oidcResponse.runtimeType}');
       if (oidcResponse is BaseUrlOidcResponse) {
         yield Left<Failure, Success>(GetOIDCConfigurationFromBaseUrlFailure(e));
       } else {

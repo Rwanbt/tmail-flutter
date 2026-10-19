@@ -49,7 +49,7 @@ class DnsLookupManager {
   /// Returns the first successfully resolved hostname, or an empty string if all fail.
   Future<String> lookupJmapUrl(String emailAddress) async {
     final jmapHostName = buildJmapHostName(emailAddress);
-    log('$runtimeType::lookupJmapUrl → Resolving SRV for: $jmapHostName');
+    log('DnsLookupManager::lookupJmapUrl: resolving SRV record');
 
     final priorities = List.of(DnsLookupPriority.values)
       ..sort((a, b) => a.priority.compareTo(b.priority));
@@ -65,20 +65,20 @@ class DnsLookupManager {
 
         final target = records.firstOrNull?.target ?? '';
         if (target.isNotEmpty) {
-          log('$runtimeType::lookupJmapUrl → ✅ Success via ${priority.label}: $target');
+          log('DnsLookupManager::lookupJmapUrl: lookup succeeded via ${priority.label}');
           return target;
         }
         log('$runtimeType::lookupJmapUrl → ⚠️ No records via ${priority.label}, continuing...');
       } on TimeoutException catch (_) {
         logWarning(
             '$runtimeType::lookupJmapUrl → ⏱️ ${priority.label} lookup timed out');
-      } catch (error, stack) {
+      } catch (_) {
         logWarning(
-            '$runtimeType::lookupJmapUrl → ❌ ${priority.label} lookup failed: $error, $stack');
+            'DnsLookupManager::lookupJmapUrl: ${priority.label} lookup failed');
       }
     }
 
-    log('$runtimeType::lookupJmapUrl → 🚨 All DNS lookups failed for $jmapHostName');
-    throw Exception('DNS lookup failed for $jmapHostName');
+    log('DnsLookupManager::lookupJmapUrl: all DNS lookups failed');
+    throw Exception('DNS lookup failed');
   }
 }

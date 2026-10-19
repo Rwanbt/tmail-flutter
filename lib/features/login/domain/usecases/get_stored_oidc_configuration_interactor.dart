@@ -16,7 +16,7 @@ class GetStoredOidcConfigurationInteractor {
       final config = await _authenticationOIDCRepository.getStoredOidcConfiguration();
       yield Right(GetStoredOidcConfigurationSuccess(config));
     } catch (e) {
-      log('GetStoredOidcConfigurationInteractor::execute(): $e');
+      logWarning('GetStoredOidcConfigurationInteractor::execute: configuration unavailable');
       yield Left(GetStoredOidcConfigurationFailure(e));
     }
   }
