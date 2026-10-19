@@ -64,6 +64,35 @@ class _FakeDownloadAttachmentForWebInteractor
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _TrackingDownloadAttachmentForWebInteractor
+    extends _FakeDownloadAttachmentForWebInteractor {
+  CancelToken? issuedCancelToken;
+
+  @override
+  Stream<Either<Failure, Success>> execute(
+    DownloadTaskId taskId,
+    Attachment attachment,
+    AccountId accountId,
+    String baseDownloadUrl, {
+    StreamController<Either<Failure, Success>>? onReceiveController,
+    CancelToken? cancelToken,
+    bool previewerSupported = false,
+    DownloadSourceView? sourceView,
+  }) {
+    issuedCancelToken = cancelToken;
+    return super.execute(
+      taskId,
+      attachment,
+      accountId,
+      baseDownloadUrl,
+      onReceiveController: onReceiveController,
+      cancelToken: cancelToken,
+      previewerSupported: previewerSupported,
+      sourceView: sourceView,
+    );
+  }
+}
+
 const _urlLauncherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
 void main() {
@@ -85,7 +114,10 @@ void main() {
 
   const homePageText = 'Home page';
 
-  Future<void> pumpViewer(WidgetTester tester) async {
+  Future<void> pumpViewer(
+    WidgetTester tester, {
+    Attachment? previewAttachment,
+  }) async {
     await tester.pumpWidget(
       const GetMaterialApp(
         localizationsDelegates: [
@@ -104,7 +136,7 @@ void main() {
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           body: PDFViewer(
-            attachment: attachment,
+            attachment: previewAttachment ?? attachment,
             accountId: AccountId(Id('account-id')),
             downloadUrl: 'https://example.com/download',
             imagePaths: ImagePaths(),
@@ -277,6 +309,37 @@ void main() {
   });
 
   group('PDFViewer disposed', () {
+    testWidgets('cancels the download when its route is popped externally',
+        (tester) async {
+      final tracking = _TrackingDownloadAttachmentForWebInteractor();
+      Get.delete<DownloadAttachmentForWebInteractor>();
+      Get.put<DownloadAttachmentForWebInteractor>(tracking);
+
+      await pumpViewer(tester);
+      expect(tracking.issuedCancelToken, isNotNull);
+      expect(tracking.issuedCancelToken!.isCancelled, isFalse);
+
+      Navigator.of(tester.element(find.byType(PDFViewer))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(tracking.issuedCancelToken!.isCancelled, isTrue);
+    });
+
+    testWidgets('handles a malformed PDF attachment without a blob ID',
+        (tester) async {
+      await pumpViewer(
+        tester,
+        previewAttachment: Attachment(name: 'missing-blob.pdf'),
+      );
+
+      expect(tester.takeException(), isNull);
+      final topBar = tester.widget<TopBarWidget>(find.byType(TopBarWidget));
+      expect(topBar.downloadAction, isNull);
+      expect(topBar.printAction, isNull);
+      expect(topBar.closeAction, isNotNull);
+    });
+
     testWidgets(
       'should return no password without a prompt once the viewer is closed',
       (tester) async {
