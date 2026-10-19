@@ -5,6 +5,7 @@ import 'package:core/presentation/state/failure.dart';
 import 'package:core/presentation/state/success.dart';
 import 'package:core/presentation/views/dialog/confirmation_dialog_builder.dart';
 import 'package:core/presentation/views/dialog/edit_text_dialog_builder.dart';
+import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:dartz/dartz.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
@@ -29,6 +30,7 @@ import 'package:tmail_ui_user/main/localizations/localization_service.dart';
 import 'package:twake_previewer_flutter/core/widgets/top_bar_widget.dart';
 
 import '../../../../../fixtures/account_fixtures.dart';
+import '../../../../../fixtures/capturing_log_handler.dart';
 import '../../../../../fixtures/widget_fixtures.dart';
 
 class _FakeDeviceInfoPlugin implements DeviceInfoPlugin {
@@ -309,6 +311,39 @@ void main() {
   });
 
   group('PDFViewer disposed', () {
+    testWidgets('ignores late parser errors after disposal and never logs signed URLs',
+        (tester) async {
+      final registry = AppLoggerRegistry.instance;
+      final captured = CapturingLogHandler();
+      registry.resetForTesting();
+      registry.registerHandler(captured);
+      try {
+        await pumpViewer(tester);
+        final onError = tester
+            .widget<PasswordAwarePdfPreviewer>(find.byType(PasswordAwarePdfPreviewer))
+            .previewerOptions
+            .onError;
+        expect(onError, isNotNull);
+        onError!(const PdfException(
+          'https://mail.example/download?access_token=private-pdf-token',
+        ));
+        await tester.pump();
+
+        Navigator.of(tester.element(find.byType(PDFViewer))).pop();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        onError(const PdfException('refresh_token=late-secret'));
+
+        expect(tester.takeException(), isNull);
+        final messages = captured.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('preview failed'));
+        expect(messages, isNot(contains('private-pdf-token')));
+        expect(messages, isNot(contains('late-secret')));
+      } finally {
+        registry.resetForTesting();
+      }
+    });
+
     testWidgets('cancels the download when its route is popped externally',
         (tester) async {
       final tracking = _TrackingDownloadAttachmentForWebInteractor();

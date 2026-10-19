@@ -189,7 +189,10 @@ class _PDFViewerState extends State<PDFViewer> {
               previewerOptions: PreviewerOptions(
                 previewerState: previewerState,
                 onError: (error) {
-                  logWarning('_PDFViewerState::build:openData:onError:: $error');
+                  // PDF parser and transport exceptions can embed private
+                  // download URLs, bearer tokens or document content.
+                  logWarning('_PDFViewerState::build:openData:onError: preview failed');
+                  if (!mounted) return;
                   _pdfViewStateNotifier.value = DownloadAttachmentForWebFailure(exception: error);
                 },
                 errorMessage: appLocalizations.noPreviewAvailable,
@@ -200,7 +203,7 @@ class _PDFViewerState extends State<PDFViewer> {
                   title: appLocalizations.cannotPreviewPdf,
                   textContent: error is PdfPasswordException
                     ? appLocalizations.pdfPasswordNotProvided
-                    : error.toString(),
+                    : appLocalizations.noPreviewAvailable,
                   confirmText: appLocalizations.close,
                   onConfirmButtonAction: popBack,
                 );

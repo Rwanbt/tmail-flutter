@@ -46,11 +46,14 @@ class DownloadAllAttachmentsForWebInteractor {
         taskId,
         attachment,
       ));
-      onReceiveController?.add(Right(StartDownloadAllAttachmentsForWeb(
-        taskId,
-        attachment,
-        cancelToken: cancelToken,
-      )));
+      if (onReceiveController?.isClosed != true &&
+          cancelToken?.isCancelled != true) {
+        onReceiveController?.add(Right(StartDownloadAllAttachmentsForWeb(
+          taskId,
+          attachment,
+          cancelToken: cancelToken,
+        )));
+      }
       final currentAccount = await _accountRepository.getCurrentAccount();
       AccountRequest accountRequest;
       if (currentAccount.authenticationType == AuthenticationType.oidc) {
@@ -77,7 +80,7 @@ class DownloadAllAttachmentsForWebInteractor {
 
       yield Right(DownloadAllAttachmentsForWebSuccess(taskId: taskId));
     } catch (e) {
-      logWarning('DownloadAllAttachmentsForWebInteractor::execute():EXCEPTION: $e');
+      logWarning('DownloadAllAttachmentsForWebInteractor::execute(): archive download failed');
       yield Left(DownloadAllAttachmentsForWebFailure(
         exception: e,
         taskId: taskId,

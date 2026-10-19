@@ -1,15 +1,29 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 import 'package:core/data/network/dio_client.dart';
 import 'package:core/data/network/download/download_manager.dart';
+import 'package:core/presentation/state/failure.dart';
+import 'package:core/presentation/state/success.dart';
+import 'package:core/utils/logging/app_logger_registry.dart';
+import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jmap_dart_client/http/http_client.dart';
+import 'package:jmap_dart_client/jmap/account_id.dart';
 import 'package:jmap_dart_client/jmap/core/id.dart';
+import 'package:jmap_dart_client/jmap/core/user_name.dart';
 import 'package:jmap_dart_client/jmap/core/properties/properties.dart';
 import 'package:jmap_dart_client/jmap/mail/email/email.dart';
 import 'package:jmap_dart_client/jmap/mail/email/email_address.dart';
 import 'package:jmap_dart_client/jmap/mail/mailbox/mailbox.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:model/account/account_request.dart';
+import 'package:model/account/password.dart';
+import 'package:model/download/download_task_id.dart';
+import 'package:model/email/attachment.dart';
 import 'package:model/email/email_action_type.dart';
 import 'package:model/email/mark_star_action.dart';
 import 'package:model/email/read_actions.dart';
@@ -24,6 +38,7 @@ import 'package:tmail_ui_user/features/email/domain/model/move_to_mailbox_reques
 import 'package:uuid/uuid.dart';
 
 import '../../../../fixtures/account_fixtures.dart';
+import '../../../../fixtures/capturing_log_handler.dart';
 import '../../../../fixtures/session_fixtures.dart';
 import 'email_api_test.mocks.dart';
 
@@ -53,6 +68,49 @@ void main() {
         dioClient,
         uuid,
       );
+    });
+
+    test('attachment HTTP progress ignores closed listeners and hides signed URL', () async {
+      final captured = CapturingLogHandler();
+      final registry = AppLoggerRegistry.instance;
+      registry.resetForTesting();
+      registry.registerHandler(captured);
+      final controller = StreamController<Either<Failure, Success>>.broadcast();
+      await controller.close();
+      try {
+        when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
+        when(dioClient.get(
+          any,
+          options: anyNamed('options'),
+          cancelToken: anyNamed('cancelToken'),
+          onReceiveProgress: anyNamed('onReceiveProgress'),
+        )).thenAnswer((invocation) async {
+          final progress = invocation.namedArguments[#onReceiveProgress]
+              as ProgressCallback;
+          progress(1, 2); // Real EmailAPI callback after UI has closed.
+          return Uint8List.fromList([1, 2]);
+        });
+
+        final bytes = await emailApi.downloadAttachmentForWeb(
+          DownloadTaskId('attachment-task'),
+          Attachment(blobId: Id('blob'), name: 'document.pdf'),
+          AccountId(Id('account')),
+          'https://mail.invalid/download/{accountId}/{blobId}?access_token=private-token',
+          AccountRequest.withBasic(
+            userName: UserName('alice@example.invalid'),
+            password: Password('private-password'),
+          ),
+          onReceiveController: controller,
+          cancelToken: CancelToken(),
+        );
+        expect(bytes, [1, 2]);
+        final messages = captured.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('requesting attachment'));
+        expect(messages, isNot(contains('private-token')));
+        expect(messages, isNot(contains('private-password')));
+      } finally {
+        registry.resetForTesting();
+      }
     });
 
     group('markAsRead::test', () {
