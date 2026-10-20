@@ -19,7 +19,7 @@ class _MemoryDownloadClient implements DownloadClient {
   ) async {
     calls += 1;
     return ResponseBody(
-      Stream.value(Uint8List.fromList([1, 2, 3])),
+      Stream.value(Uint8List.fromList([calls, 2, 3])),
       200,
       headers: {Headers.contentTypeHeader: ['application/octet-stream']},
     );
@@ -107,6 +107,31 @@ void main() {
       expect(result.filePath, '${directory.absolute.path}/invoice.pdf');
       expect(await File(result.filePath).readAsBytes(), [1, 2, 3]);
       expect(client.calls, 1);
+    });
+
+    test('downloads with the same name preserve each private attachment', () async {
+      final directory = await Directory.systemTemp.createTemp('tmail-safe-');
+      addTearDown(() => directory.delete(recursive: true));
+      final client = _MemoryDownloadClient();
+      final manager = DownloadManager(client);
+
+      final first = await manager.downloadFile(
+        'https://jmap.example.invalid/account-one',
+        Future.value(directory),
+        'invoice.pdf',
+        'account-one-auth',
+      );
+      final second = await manager.downloadFile(
+        'https://jmap.example.invalid/account-two',
+        Future.value(directory),
+        'invoice.pdf',
+        'account-two-auth',
+      );
+
+      expect(first.filePath, isNot(second.filePath));
+      expect(await File(first.filePath).readAsBytes(), [1, 2, 3]);
+      expect(await File(second.filePath).readAsBytes(), [2, 2, 3]);
+      expect(client.calls, 2);
     });
 
     test('cancellation cannot retain a truncated private attachment on disk', () async {
