@@ -20,3 +20,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --test ci/*.test.cjs
+      - name: Verify QA TLS and JWT private key permissions
+        run: |
+          bash -n scripts/qa-environment/start.sh
+          bash scripts/qa-environment/test-private-files.sh
