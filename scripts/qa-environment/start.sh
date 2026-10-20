@@ -27,6 +27,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GENERATED_DIR="$SCRIPT_DIR/.generated"
+source "$SCRIPT_DIR/private-files.sh"
 
 MOBILE=false
 for arg in "$@"; do
@@ -94,6 +95,7 @@ if [ ! -f "$GENERATED_DIR/jwt_privatekey" ]; then
   openssl genpkey -algorithm rsa -pkeyopt rsa_keygen_bits:4096 -out "$GENERATED_DIR/jwt_privatekey" 2>/dev/null
   openssl rsa -in "$GENERATED_DIR/jwt_privatekey" -pubout -out "$GENERATED_DIR/jwt_publickey" 2>/dev/null
 fi
+secure_private_file "$GENERATED_DIR/jwt_privatekey"
 # James advertises these URLs in its JMAP session, the app uses them for every later request.
 sed -e "s|^url.prefix=.*|url.prefix=$JMAP_URL|" \
     -e "s|^websocket.url.prefix=.*|websocket.url.prefix=$WS_URL|" \
@@ -105,12 +107,13 @@ if [ "$MOBILE" = true ]; then
       -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign,cRLSign \
       -keyout "$GENERATED_DIR/qa-ca.key" -out "$GENERATED_DIR/qa-ca.pem" 2>/dev/null
   fi
+  secure_private_file "$GENERATED_DIR/qa-ca.key"
   openssl req -newkey rsa:2048 -nodes -subj "/CN=10.0.2.2" \
     -keyout "$GENERATED_DIR/tls.key" -out "$GENERATED_DIR/tls.csr" 2>/dev/null
   openssl x509 -req -in "$GENERATED_DIR/tls.csr" -CA "$GENERATED_DIR/qa-ca.pem" \
     -CAkey "$GENERATED_DIR/qa-ca.key" -CAcreateserial -days 825 -out "$GENERATED_DIR/tls.pem" \
     -extfile <(printf 'subjectAltName=IP:10.0.2.2,IP:127.0.0.1,DNS:localhost\nextendedKeyUsage=serverAuth\n') 2>/dev/null
-  chmod 644 "$GENERATED_DIR/tls.key"
+  secure_private_file "$GENERATED_DIR/tls.key"
   cat > "$GENERATED_DIR/nginx-tls.conf" <<'NGINX'
 server {
   listen 443 ssl;
