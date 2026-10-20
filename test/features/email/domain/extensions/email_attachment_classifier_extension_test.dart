@@ -83,6 +83,34 @@ void main() {
         expectedAttachmentBlobs: <String>{},
         expectedInlineCids: {'ref@x'},
       ),
+      (
+        name: 'upper-case CID scheme keeps the embedded image inline',
+        cid: 'ref@x',
+        body: '<img src="CID:ref@x">',
+        expectedAttachmentBlobs: <String>{},
+        expectedInlineCids: {'ref@x'},
+      ),
+      (
+        name: 'percent-encoded CID references decode before matching',
+        cid: 'ref@x',
+        body: '<img src="cid:ref%40x">',
+        expectedAttachmentBlobs: <String>{},
+        expectedInlineCids: {'ref@x'},
+      ),
+      (
+        name: 'angle-bracket Content-ID is normalized',
+        cid: '<ref@x>',
+        body: '<img src="cid:ref@x">',
+        expectedAttachmentBlobs: <String>{},
+        expectedInlineCids: {'<ref@x>'},
+      ),
+      (
+        name: 'unsafe percent escape is not interpreted as a reference',
+        cid: 'ref@x',
+        body: '<img src="cid:ref%ZZ@x">',
+        expectedAttachmentBlobs: {'b'},
+        expectedInlineCids: <String>{},
+      ),
     ]) {
       test(tc.name, () {
         final email = buildEmail(

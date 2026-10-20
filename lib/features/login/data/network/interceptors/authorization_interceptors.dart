@@ -140,13 +140,11 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
   }
 
   /// Reports a refresh the server rejected, once, where the session is cleared.
-  void _logFatalRefreshRejection(RefreshTokenFailedException error, StackTrace st) {
+  void _logFatalRefreshRejection(RefreshTokenFailedException error) {
     final cause = error.cause ?? error;
     logError(
       'AuthorizationInterceptors::_logFatalRefreshRejection: '
-      'will_logout=true — error=$cause',
-      exception: cause,
-      stackTrace: st,
+      'will_logout=true | error_type=${cause.runtimeType}',
       extras: _errorClassifier.buildSentryExtras(cause),
       webConsoleEnabled: true,
     );
@@ -159,7 +157,11 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.extra[skipAuthorizationKey] == true) {
-      options.headers.remove(HttpHeaders.authorizationHeader);
+      // Request headers are stored in a case-sensitive Map even though HTTP
+      // header names are case-insensitive. A preset `Authorization` must not
+      // bypass the opt-out used for untrusted discovery endpoints.
+      options.headers.removeWhere((key, _) =>
+          key.toLowerCase() == HttpHeaders.authorizationHeader);
       super.onRequest(options, handler);
       return;
     }
@@ -178,7 +180,9 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       case AuthenticationType.none:
         break;
     }
-    log('AuthorizationInterceptors::onRequest(): URL = ${options.uri} | DATA = ${options.data}');
+    // JMAP requests can carry full draft bodies and credentials; URLs may
+    // include sensitive query strings. Neither belongs in telemetry.
+    log('AuthorizationInterceptors::onRequest(): METHOD = ${options.method}');
     super.onRequest(options, handler);
   }
 
@@ -190,7 +194,9 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
     }
 
     logWarning(
-      'AuthorizationInterceptors::onError(): DIO_ERROR = $err | '
+      // DioException.toString() includes the full URL (including query tokens)
+      // and can expose request data. Log only non-sensitive status metadata.
+      'AuthorizationInterceptors::onError(): DIO_ERROR_TYPE = ${err.type} | '
       'statusCode=${err.response?.statusCode} | authType=$_authenticationType',
       webConsoleEnabled: true,
     );
@@ -228,17 +234,14 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
           'statusCode = ${err.response?.statusCode} | '
           'authType = $_authenticationType | '
           'hasConfig = ${_configOIDC != null} | '
-          'hasAttemptedRefresh = $hasAttemptedRefresh | '
-          'url = ${err.requestOptions.uri}',
+          'hasAttemptedRefresh = $hasAttemptedRefresh',
           webConsoleEnabled: true,
         );
       }
       return super.onError(err, handler);
     } catch (e, stackTrace) {
       logError(
-        'AuthorizationInterceptors::onError:Exception: $e',
-        exception: e,
-        stackTrace: stackTrace,
+        'AuthorizationInterceptors::onError:ExceptionType: ${e.runtimeType}',
         webConsoleEnabled: true,
       );
       return _handleRefreshError(e, stackTrace, err, handler);
@@ -268,9 +271,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       'authType=$_authenticationType | hasConfig=${_configOIDC != null} | '
       'hasToken=${_isTokenNotEmpty(_token)} | hasRefreshToken=${_isRefreshTokenNotEmpty(_token)} | '
       'tokenExpired=${_isTokenExpired(_token)} | hasAttemptedRefresh=$hasAttemptedRefresh | '
-      'statusCode=${err.response?.statusCode} | url=${err.requestOptions.uri}',
-      exception: err,
-      stackTrace: err.stackTrace,
+      'statusCode=${err.response?.statusCode}',
       webConsoleEnabled: true,
     );
   }
@@ -293,9 +294,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       // Non-standard OAuth2 code — log to Sentry for investigation, keep session.
       logError(
         'AuthorizationInterceptors::_handleRefreshErrorOnWeb: '
-        'will_logout=false — error=$error',
-        exception: error,
-        stackTrace: stackTrace,
+        'will_logout=false | error_type=${error.runtimeType}',
         extras: _errorClassifier.buildSentryExtras(error),
         webConsoleEnabled: true,
       );
@@ -304,7 +303,8 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
 
     logWarning(
       'AuthorizationInterceptors::_handleRefreshErrorOnWeb: '
-      'web refresh network/transient failure, keeping session — error=$error',
+      'web refresh network/transient failure, keeping session | '
+      'error_type=${error.runtimeType}',
       webConsoleEnabled: true,
     );
     return _propagateKeepingSession(error, originalError, handler);
@@ -354,7 +354,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
   ) {
     logWarning(
       'AuthorizationInterceptors::_handleRetryError: '
-      'retry with new token failed — error=$retryError',
+      'retry with new token failed | error_type=${retryError.runtimeType}',
       webConsoleEnabled: true,
     );
     if (retryError is DioException) {
@@ -431,9 +431,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       if (refreshError.response?.statusCode == 400) {
         logError(
           'AuthorizationInterceptors: auth_error_type=token_endpoint_400 | '
-          'will_logout=true — error=$refreshError',
-          exception: refreshError,
-          stackTrace: st,
+          'will_logout=true | statusCode=${refreshError.response?.statusCode}',
         );
         clear();
         return handler.reject(DioException(
@@ -446,26 +444,21 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       logError(
         'AuthorizationInterceptors: auth_error_type=token_endpoint_other | '
         'statusCode=${refreshError.response?.statusCode} | '
-        'will_logout=false — error=$refreshError',
-        exception: refreshError,
-        stackTrace: st,
+        'will_logout=false | error_type=${refreshError.runtimeType}',
       );
       return _handleDioRefreshError(
         refreshError: refreshError,
         originalError: err,
         handler: handler,
       );
-    } on PlatformException catch (e, st) {
+    } on PlatformException catch (e) {
       // flutter_appauth throws PlatformException when the native token request
       // fails at the OS level (e.g. DNS resolution failure, no network to SSO).
       // This is a connectivity failure, NOT a server rejection — keep the
       // session alive and surface a connection-error toast instead of logging out.
       logError(
         'AuthorizationInterceptors: auth_error_type=token_refresh_platform_network_failure | '
-        'platformCode=${e.code} | '
-        'will_logout=false — error=$e',
-        exception: e,
-        stackTrace: st,
+        'will_logout=false | error_type=${e.runtimeType}',
       );
       return super.onError(
         DioException(
@@ -527,9 +520,9 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       final openRead = mapUploadExtra[UploadRequestExtra.openReadKey]
           as Stream<List<int>> Function()?;
       return openRead?.call();
-    } catch (e) {
+    } catch (_) {
       logWarning(
-        'AuthorizationInterceptors::_getDataUploadRequest: Exception = $e',
+        'AuthorizationInterceptors::_getDataUploadRequest: unable to read upload data',
       );
       return null;
     }
@@ -622,8 +615,8 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       // the StaleSessionRefreshException below.
       try {
         await _tokenOidcCacheManager.deleteTokenOidc(tokenOIDC.tokenIdHash);
-      } catch (e) {
-        logWarning('AuthorizationInterceptors::_updateCurrentAccount: rollback deleteTokenOidc failed: $e');
+      } catch (_) {
+        logWarning('AuthorizationInterceptors::_updateCurrentAccount: rollback deleteTokenOidc failed');
       }
       throw const StaleSessionRefreshException();
     }
@@ -641,8 +634,8 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       // Same as above, but for the account write.
       try {
         await _accountCacheManager.deleteCurrentAccount(personalAccount.id);
-      } catch (e) {
-        logWarning('AuthorizationInterceptors::_updateCurrentAccount: rollback deleteCurrentAccount failed: $e');
+      } catch (_) {
+        logWarning('AuthorizationInterceptors::_updateCurrentAccount: rollback deleteCurrentAccount failed');
       }
       throw const StaleSessionRefreshException();
     }
@@ -682,7 +675,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
 
   Future<TokenOIDC> _getNewTokenForIOSPlatform() async {
     final tokenInKeychain = await _getTokenInKeychain(_token!);
-    log('AuthorizationInterceptors::_handleRefreshTokenOnIOSPlatform: KeychainTokenId = ${tokenInKeychain?.tokenIdHash} | isTokenExpired = ${_isTokenExpired(tokenInKeychain)}');
+    log('AuthorizationInterceptors::_handleRefreshTokenOnIOSPlatform: keychain token available = ${tokenInKeychain != null} | isTokenExpired = ${_isTokenExpired(tokenInKeychain)}');
     if (tokenInKeychain == null || _isTokenExpired(tokenInKeychain)) {
       return _invokeRefreshTokenFromServer();
     } else {
@@ -700,7 +693,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       acquired = PlatformInfo.isIOS
           ? await _getNewTokenForIOSPlatform()
           : await _getNewTokenForOtherPlatform();
-    } catch (e, st) {
+    } catch (e) {
       // The session that started this refresh is gone; its answer is not a
       // verdict on the session that replaced it.
       if (generation != _sessionGeneration) throw const StaleSessionRefreshException();
@@ -708,7 +701,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
       clear();
       // Logged here, not per caller: this one method serves JMAP and Workplace.
       final fatal = RefreshTokenFailedException(cause: e);
-      _logFatalRefreshRejection(fatal, st);
+      _logFatalRefreshRejection(fatal);
       throw fatal;
     }
 
@@ -744,7 +737,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
 
     if (extraInRequest.containsKey(UploadRequestExtra.uploadAttachmentKey)) {
       log('AuthorizationInterceptors::_retryRequest: '
-          'Retry upload request with TokenId = ${_token?.tokenIdHash}');
+          'retrying upload request');
       return _retryUploadRequest(
         retryDio,
         requestOptions,
@@ -753,7 +746,7 @@ class AuthorizationInterceptors extends QueuedInterceptorsWrapper {
     }
 
     log('AuthorizationInterceptors::_retryRequest: '
-        'Retry request with TokenId = ${_token?.tokenIdHash}');
+        'retrying request');
     return retryDio.fetch(requestOptions);
   }
 

@@ -17,7 +17,7 @@ class GetAuthenticationInfoInteractor {
       log('GetAuthenticationInfoInteractor::execute(): authentication info found');
       yield Right<Failure, Success>(GetAuthenticationInfoSuccess());
     } catch (e) {
-      log('GetAuthenticationInfoInteractor::execute(): ERROR: $e');
+      logWarning('GetAuthenticationInfoInteractor::execute: loading credentials failed');
       yield Left<Failure, Success>(GetAuthenticationInfoFailure(e));
     }
   }

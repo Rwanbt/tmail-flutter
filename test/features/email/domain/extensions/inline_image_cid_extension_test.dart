@@ -27,6 +27,41 @@ void main() {
 
       expect(inlineAttachments.resolveUploadedImage(attributes), isNull);
     });
+
+    test('resolves an encoded Content-ID with an uppercase CID scheme', () {
+      final image = Attachment(blobId: Id('blob-encoded'), cid: 'photo@example.org');
+      final attributes = <Object, String>{
+        'id': 'CID:photo%40example.org',
+        'src': 'data:image/png;base64,AAAA',
+      };
+
+      expect({'photo@example.org': image}.resolveUploadedImage(attributes), image);
+      expect(attributes, {'src': 'cid:photo@example.org'});
+    });
+
+    test('does not rewrite an uploaded image with an invalid CID escape', () {
+      final attributes = <Object, String>{
+        'id': 'cid:img%ZZ-1',
+        'src': 'data:image/png;base64,AAAA',
+      };
+
+      expect(inlineAttachments.resolveUploadedImage(attributes), isNull);
+      expect(attributes, {
+        'id': 'cid:img%ZZ-1',
+        'src': 'data:image/png;base64,AAAA',
+      });
+    });
+
+    test('keeps a literal percent in a MIME Content-ID when its URL is encoded', () {
+      final image = Attachment(blobId: Id('blob-percent'), cid: '<photo%ZZ@example.org>');
+      final attributes = <Object, String>{
+        'id': 'cid:photo%25ZZ@example.org',
+        'src': 'data:image/png;base64,AAAA',
+      };
+
+      expect({'upload-1': image}.resolveUploadedImage(attributes), image);
+      expect(attributes, {'src': 'cid:photo%25ZZ@example.org'});
+    });
   });
 
   group('InlineImageCidExtension::replaceUploadedImagesWithCid', () {
@@ -39,6 +74,15 @@ void main() {
       expect(inlineImages, {uploaded});
     });
 
+    test('reload snapshot retains an uploaded image with uppercase data URI', () {
+      const content = '<p><img id="cid:img-1" src="DATA:IMAGE/PNG;BASE64,AAAA"></p>';
+      final (html, inlineImages) =
+          inlineAttachments.replaceUploadedImagesWithCid(content);
+
+      expect(html, '<p><img src="cid:img-1"></p>');
+      expect(inlineImages, {uploaded});
+    });
+
     test('returns the attachment of an image already referenced by cid', () {
       const content = '<p><img src="cid:img-1"></p>';
 
@@ -46,6 +90,50 @@ void main() {
 
       expect(html, content);
       expect(inlineImages, {uploaded});
+    });
+
+    test('recovers inline images with encoded, uppercase and bracketed Content-IDs after reload', () {
+      final image = Attachment(blobId: Id('blob-encoded'), cid: '<photo@example.org>');
+      final attachments = {'<photo@example.org>': image};
+      const content = '<p><img src="CID:photo%40example.org"></p>';
+
+      final (html, inlineImages) = attachments.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, {image});
+    });
+
+    test('does not attach unrelated images or malformed CID references', () {
+      const content = '<img src="https://example.org/cid:photo%40example.org">'
+          '<img src="cid:photo%ZZexample.org">';
+      final image = Attachment(blobId: Id('blob-encoded'), cid: 'photo@example.org');
+      final (html, inlineImages) =
+          {'photo@example.org': image}.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, isEmpty);
+    });
+
+    test('ignores malformed UTF-8 escapes while preserving valid inline images', () {
+      const content = '<img src="cid:%E9">'
+          '<img src="cid:img-1">'
+          '<img id="cid:%ZZ" src="data:image/png;base64,AAAA">';
+
+      final (html, inlineImages) = inlineAttachments.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, {uploaded});
+    });
+
+    test('recovers a CID containing a literal percent after draft reload', () {
+      final image = Attachment(blobId: Id('blob-percent'), cid: 'photo%ZZ@example.org');
+      const content = '<img src="cid:photo%25ZZ@example.org">';
+
+      final (html, inlineImages) =
+          {'upload-1': image}.replaceUploadedImagesWithCid(content);
+
+      expect(html, content);
+      expect(inlineImages, {image});
     });
 
     test('keeps an image without an upload in base64', () {

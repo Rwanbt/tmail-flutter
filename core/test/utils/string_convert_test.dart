@@ -286,6 +286,13 @@ void main() {
   });
 
   group('StringConvert.getMediaTypeFromBase64ImageTag', () {
+    test('decodes uppercase data URI base64 bytes and normalizes MIME type', () {
+      const uppercaseUri = 'DATA:IMAGE/PNG;BASE64,AQID';
+      expect(StringConvert.convertBase64ImageTagToBytes(uppercaseUri), [1, 2, 3]);
+      final type = StringConvert.getMediaTypeFromBase64ImageTag(uppercaseUri);
+      expect(type?.mimeType, 'image/png');
+    });
+
     test('should return correct MediaType for valid JPEG base64 tag', () {
       const validJpegTag = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
       final result = StringConvert.getMediaTypeFromBase64ImageTag(validJpegTag);

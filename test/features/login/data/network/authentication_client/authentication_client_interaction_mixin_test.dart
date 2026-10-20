@@ -1,8 +1,11 @@
+import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_appauth_platform_interface/flutter_appauth_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tmail_ui_user/features/login/data/network/authentication_client/authentication_client_interaction_mixin.dart';
 import 'package:tmail_ui_user/features/login/domain/exceptions/oauth_authorization_error.dart';
+
+import '../../../../../fixtures/capturing_log_handler.dart';
 
 /// The mixin declares no `on` clause, so a bare host class is enough to
 /// exercise [AuthenticationClientInteractionMixin.handleException].
@@ -15,6 +18,27 @@ void main() {
 
   group('AuthenticationClientInteractionMixin::handleException '
       '- converts an AppAuth OAuth error', () {
+    test('does not disclose OAuth server error descriptions to log handlers', () {
+      final registry = AppLoggerRegistry.instance;
+      final logs = CapturingLogHandler();
+      registry.resetForTesting();
+      registry.registerHandler(logs);
+      try {
+        final result = authClient.handleException(_appAuthException(
+          error: 'invalid_grant',
+          errorDescription: 'reset_token=super-private-oauth-code',
+        ));
+        expect(result, isA<OAuthAuthorizationError>());
+        expect(logs.records, isNotEmpty);
+        final messages = logs.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('handleException'));
+        expect(messages, isNot(contains('super-private-oauth-code')));
+        expect(messages, isNot(contains('reset_token')));
+      } finally {
+        registry.resetForTesting();
+      }
+    });
+
     test('maps an RFC 6749 code to OAuthAuthorizationError', () {
       final result = authClient.handleException(_appAuthException(
         error: 'invalid_grant',

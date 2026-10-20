@@ -29,6 +29,20 @@ abstract class RefreshTokenErrorClassifier {
     'unsupported_grant_type', // grant type not supported by the server (400)
   };
 
+  // Provider-controlled codes can contain URLs or diagnostic text. Only
+  // known OAuth protocol identifiers are safe to export to telemetry.
+  static const safeOAuthErrorCodes = {
+    ...badGrantCodes,
+    'access_denied',
+    'server_error',
+    'temporarily_unavailable',
+    'token_failed',
+  };
+
+  static String safeOAuthErrorCode(String? code) => code == null
+      ? 'unknown'
+      : safeOAuthErrorCodes.contains(code) ? code : 'other';
+
   /// Value of the `auth_error_type` Sentry field when the refresh was rejected.
   @protected
   String get rejectedAuthErrorType;

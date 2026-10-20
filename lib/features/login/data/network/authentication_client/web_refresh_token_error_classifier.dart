@@ -32,15 +32,15 @@ class WebRefreshTokenErrorClassifier extends RefreshTokenErrorClassifier {
     return false;
   }
 
-  /// Includes [oauth_error_code] and [oauth_error_description] parsed from the
-  /// flutter_appauth_web message so that non-standard codes (e.g.
-  /// "token_failed") are fully visible in Sentry.
+  /// Only allowlisted OAuth codes are sent to Sentry. The provider-controlled
+  /// description can contain callback tokens and must remain local.
   @override
   Map<String, dynamic> buildPlatformSentryExtras(Object error) {
     if (error is! ArgumentError) return const {};
     return {
-      'oauth_error_code': _parseOAuthCode(error) ?? 'unknown',
-      'oauth_error_description': _parseOAuthDesc(error) ?? 'unknown',
+      'oauth_error_code': RefreshTokenErrorClassifier.safeOAuthErrorCode(
+        _parseOAuthCode(error),
+      ),
     };
   }
 

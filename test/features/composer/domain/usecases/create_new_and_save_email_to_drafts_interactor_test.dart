@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:jmap_dart_client/jmap/core/id.dart';
@@ -11,9 +12,11 @@ import 'package:model/extensions/session_extension.dart';
 import 'package:tmail_ui_user/features/composer/domain/exceptions/compose_email_exception.dart';
 import 'package:tmail_ui_user/features/composer/domain/repository/composer_repository.dart';
 import 'package:tmail_ui_user/features/composer/domain/state/save_email_as_drafts_state.dart';
+import 'package:tmail_ui_user/features/composer/domain/state/generate_email_state.dart';
 import 'package:tmail_ui_user/features/composer/domain/state/update_email_drafts_state.dart';
 import 'package:tmail_ui_user/features/composer/domain/usecases/create_new_and_save_email_to_drafts_interactor.dart';
 import 'package:tmail_ui_user/features/composer/presentation/model/create_email_request.dart';
+import 'package:tmail_ui_user/features/email/domain/exceptions/email_exceptions.dart';
 import 'package:tmail_ui_user/features/email/domain/repository/email_repository.dart';
 import 'package:tmail_ui_user/features/mailbox/domain/exceptions/mailbox_exception.dart';
 import 'package:tmail_ui_user/main/exceptions/remote/unknown_remote_exception.dart';
@@ -50,6 +53,69 @@ void main() {
   });
 
   group('create new and save email to drafts interactor test:', () {
+    test('new JMAP draft saves once and returns its server-generated id', () async {
+      final createdEmail = Email(subject: 'draft');
+      final savedId = EmailId(Id('server-id'));
+      final cancelToken = CancelToken();
+      when(composerRepository.generateEmail(any, withIdentityHeader: anyNamed('withIdentityHeader'), isDraft: anyNamed('isDraft')))
+          .thenAnswer((_) async => createdEmail);
+      when(emailRepository.saveEmailAsDrafts(any, any, any, cancelToken: anyNamed('cancelToken')))
+          .thenAnswer((_) async => Email(id: savedId));
+
+      final result = await interactor.execute(
+        createEmailRequest: buildRequest(),
+        cancelToken: cancelToken,
+      ).toList();
+      final saved = result
+          .whereType<Right>()
+          .map((right) => right.value)
+          .whereType<SaveEmailAsDraftsSuccess>()
+          .single;
+
+      expect(saved.emailId, savedId);
+      verify(emailRepository.saveEmailAsDrafts(
+        SessionFixtures.aliceSession,
+        AccountFixtures.aliceAccountId,
+        createdEmail,
+        cancelToken: cancelToken,
+      )).called(1);
+      verifyNever(emailRepository.updateEmailDrafts(any, any, any, any));
+    });
+
+    test('failed generation never creates a remote JMAP draft', () async {
+      when(composerRepository.generateEmail(any, withIdentityHeader: anyNamed('withIdentityHeader'), isDraft: anyNamed('isDraft')))
+          .thenThrow(StateError('Cannot generate draft email'));
+
+      final result = await interactor.execute(createEmailRequest: buildRequest()).toList();
+      final failure = result
+          .whereType<Left>()
+          .map((left) => left.value)
+          .whereType<GenerateEmailFailure>()
+          .single;
+
+      expect(failure.exception, isA<CannotCreateEmailObjectException>());
+      verifyNever(emailRepository.saveEmailAsDrafts(any, any, any));
+      verifyNever(emailRepository.updateEmailDrafts(any, any, any, any));
+    });
+
+    test('a saved JMAP draft without an id reports failure, never success', () async {
+      when(composerRepository.generateEmail(any, withIdentityHeader: anyNamed('withIdentityHeader'), isDraft: anyNamed('isDraft')))
+          .thenAnswer((_) async => Email());
+      when(emailRepository.saveEmailAsDrafts(any, any, any))
+          .thenAnswer((_) async => Email());
+
+      final result = await interactor.execute(createEmailRequest: buildRequest()).toList();
+      expect(
+        result.whereType<Right>().map((right) => right.value).whereType<SaveEmailAsDraftsSuccess>(),
+        isEmpty,
+      );
+      expect(
+        result.whereType<Left>().map((left) => left.value)
+            .whereType<SaveEmailAsDraftsFailure>().single.exception,
+        isA<NotFoundEmailIdException>(),
+      );
+    });
+
     test(
       'should call generateEmail with withIdentityHeader=true when draftsEmailId != null',
     () async {

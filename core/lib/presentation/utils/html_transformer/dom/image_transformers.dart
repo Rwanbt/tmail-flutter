@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:core/data/network/dio_client.dart';
 import 'package:core/data/utils/compress_file_utils.dart';
-import 'package:core/presentation/extensions/html_extension.dart';
+import 'package:core/utils/html/html_utils.dart';
 import 'package:core/presentation/utils/html_transformer/base/dom_transformer.dart';
 import 'package:core/utils/app_logger.dart';
 import 'package:core/utils/platform_info.dart';
@@ -33,7 +33,7 @@ class ImageTransformer extends DomTransformer {
 
         final id = imageElement.attributes['id'] ?? '';
         final mimeType = imageElement.attributes['data-mimetype'];
-        if (src.startsWith('cid:') && mapUrlDownloadCID != null) {
+        if (src.toLowerCase().startsWith('cid:') && mapUrlDownloadCID != null) {
           final imageBase64 = await _convertCidToBase64Image(
             dioClient: dioClient,
             mapUrlDownloadCID: mapUrlDownloadCID,
@@ -62,7 +62,15 @@ class ImageTransformer extends DomTransformer {
     required String imageSource,
     required String? mimeType,
   }) async {
-    final cid = imageSource.replaceFirst('cid:', '').trim();
+    // The CID scheme is case-insensitive (RFC 2392), while the identifier
+    // itself must retain its original case for the JMAP blob lookup.
+    final rawCid = imageSource.substring('cid:'.length).trim();
+    String cid;
+    try {
+      cid = Uri.decodeComponent(rawCid);
+    } on FormatException {
+      return null;
+    }
     final urlDownloadCid = mapUrlDownloadCID[cid];
 
     if (urlDownloadCid == null || urlDownloadCid.isEmpty) return null;
@@ -115,10 +123,10 @@ class ImageTransformer extends DomTransformer {
 
   static String encodeToBase64Uri(Map<String, dynamic> entryParam) {
     final base64Data = base64Encode(entryParam['bytesData']);
-    if (!base64Data.endsWith('==')) {
-      base64Data.append('==');
-    }
-    final mimeType = entryParam['mimeType'] ?? 'image/jpeg';
+    // base64Encode already pads correctly; extra padding corrupts valid data.
+    final mimeType = HtmlUtils.validateHtmlImageResourceMimeType(
+      entryParam['mimeType'] as String? ?? 'image/jpeg',
+    );
     return 'data:$mimeType;base64,$base64Data';
   }
 }

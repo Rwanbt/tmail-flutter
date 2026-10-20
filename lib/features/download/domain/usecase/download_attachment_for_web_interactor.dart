@@ -51,7 +51,10 @@ class DownloadAttachmentForWebInteractor {
         ),
       );
       yield loadingState;
-      onReceiveController?.add(loadingState);
+      if (onReceiveController?.isClosed != true &&
+          cancelToken?.isCancelled != true) {
+        onReceiveController?.add(loadingState);
+      }
 
       final currentAccount = await _accountRepository.getCurrentAccount();
       AccountRequest? accountRequest;

@@ -25,7 +25,7 @@ extension HandleCompanyServerLoginInfoExtension on LoginController {
   }
 
   void saveCompanyServerLoginInfo(String username) {
-    log('$runtimeType::saveCompanyServerLoginInfo: Username = $username');
+    log('LoginController::saveCompanyServerLoginInfo: storing account choice');
     saveLoginInfoInteractor = getBinding<SaveCompanyServerLoginInfoInteractor>();
 
     if (saveLoginInfoInteractor != null) {

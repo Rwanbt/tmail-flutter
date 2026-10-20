@@ -15,9 +15,9 @@ class AccountCacheManager extends CacheManagerInteraction {
 
   Future<PersonalAccount> getCurrentAccount() async {
     final allAccounts = await _accountCacheClient.getAll();
-    log('AccountCacheManager::getCurrentAccount::allAccounts(): $allAccounts');
+    log('AccountCacheManager::getCurrentAccount: ${allAccounts.length} cached accounts');
     final accountCache = allAccounts.firstWhereOrNull((account) => account.isSelected);
-    log('AccountCacheManager::getCurrentAccount::accountCache(): $accountCache');
+    log('AccountCacheManager::getCurrentAccount: selected account found = ${accountCache != null}');
     if (accountCache != null) {
       return accountCache.toAccount();
     } else {
@@ -26,10 +26,10 @@ class AccountCacheManager extends CacheManagerInteraction {
   }
 
   Future<void> setCurrentAccount(PersonalAccount newAccount) async {
-    log('AccountCacheManager::setCurrentAccount(): $newAccount');
+    log('AccountCacheManager::setCurrentAccount: updating selected account');
     final newAccountCache = newAccount.toCache();
     final allAccounts = await _accountCacheClient.getAll();
-    log('AccountCacheManager::setCurrentAccount::allAccounts(): length: ${allAccounts.length}, $allAccounts');
+    log('AccountCacheManager::setCurrentAccount: ${allAccounts.length} existing accounts');
 
     // Crash-safe: write the new (selected) account FIRST so the box is never
     // empty / never without a selected account if the process is killed mid-write.
@@ -62,7 +62,7 @@ class AccountCacheManager extends CacheManagerInteraction {
   }
 
   Future<void> deleteCurrentAccount(String hashId) {
-    log('AccountCacheManager::deleteCurrentAccount(): $hashId');
+    log('AccountCacheManager::deleteCurrentAccount: deleting account');
     return _accountCacheClient.deleteItem(hashId);
   }
 
@@ -77,8 +77,8 @@ class AccountCacheManager extends CacheManagerInteraction {
       log('$runtimeType::migrateHiveToIsolatedHive(): Length of legacyMapItems: ${legacyMapItems.length}');
       await _accountCacheClient.insertMultipleItem(legacyMapItems);
       log('$runtimeType::migrateHiveToIsolatedHive(): ✅ Migrate Hive box "${_accountCacheClient.tableName}" → IsolatedHive DONE');
-    } catch (e) {
-      logWarning('$runtimeType::migrateHiveToIsolatedHive(): ❌ Migrate Hive box "${_accountCacheClient.tableName}" → IsolatedHive FAILED, Error: $e');
+    } catch (_) {
+      logWarning('AccountCacheManager::migrateHiveToIsolatedHive: migration failed');
     }
   }
 }

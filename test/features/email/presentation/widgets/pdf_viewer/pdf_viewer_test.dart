@@ -5,6 +5,7 @@ import 'package:core/presentation/state/failure.dart';
 import 'package:core/presentation/state/success.dart';
 import 'package:core/presentation/views/dialog/confirmation_dialog_builder.dart';
 import 'package:core/presentation/views/dialog/edit_text_dialog_builder.dart';
+import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:dartz/dartz.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
@@ -29,6 +30,7 @@ import 'package:tmail_ui_user/main/localizations/localization_service.dart';
 import 'package:twake_previewer_flutter/core/widgets/top_bar_widget.dart';
 
 import '../../../../../fixtures/account_fixtures.dart';
+import '../../../../../fixtures/capturing_log_handler.dart';
 import '../../../../../fixtures/widget_fixtures.dart';
 
 class _FakeDeviceInfoPlugin implements DeviceInfoPlugin {
@@ -64,6 +66,35 @@ class _FakeDownloadAttachmentForWebInteractor
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _TrackingDownloadAttachmentForWebInteractor
+    extends _FakeDownloadAttachmentForWebInteractor {
+  CancelToken? issuedCancelToken;
+
+  @override
+  Stream<Either<Failure, Success>> execute(
+    DownloadTaskId taskId,
+    Attachment attachment,
+    AccountId accountId,
+    String baseDownloadUrl, {
+    StreamController<Either<Failure, Success>>? onReceiveController,
+    CancelToken? cancelToken,
+    bool previewerSupported = false,
+    DownloadSourceView? sourceView,
+  }) {
+    issuedCancelToken = cancelToken;
+    return super.execute(
+      taskId,
+      attachment,
+      accountId,
+      baseDownloadUrl,
+      onReceiveController: onReceiveController,
+      cancelToken: cancelToken,
+      previewerSupported: previewerSupported,
+      sourceView: sourceView,
+    );
+  }
+}
+
 const _urlLauncherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
 void main() {
@@ -85,7 +116,10 @@ void main() {
 
   const homePageText = 'Home page';
 
-  Future<void> pumpViewer(WidgetTester tester) async {
+  Future<void> pumpViewer(
+    WidgetTester tester, {
+    Attachment? previewAttachment,
+  }) async {
     await tester.pumpWidget(
       const GetMaterialApp(
         localizationsDelegates: [
@@ -104,7 +138,7 @@ void main() {
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
           body: PDFViewer(
-            attachment: attachment,
+            attachment: previewAttachment ?? attachment,
             accountId: AccountId(Id('account-id')),
             downloadUrl: 'https://example.com/download',
             imagePaths: ImagePaths(),
@@ -277,6 +311,70 @@ void main() {
   });
 
   group('PDFViewer disposed', () {
+    testWidgets('ignores late parser errors after disposal and never logs signed URLs',
+        (tester) async {
+      final registry = AppLoggerRegistry.instance;
+      final captured = CapturingLogHandler();
+      registry.resetForTesting();
+      registry.registerHandler(captured);
+      try {
+        await pumpViewer(tester);
+        final onError = tester
+            .widget<PasswordAwarePdfPreviewer>(find.byType(PasswordAwarePdfPreviewer))
+            .previewerOptions
+            .onError;
+        expect(onError, isNotNull);
+        onError!(const PdfException(
+          'https://mail.example/download?access_token=private-pdf-token',
+        ));
+        await tester.pump();
+
+        Navigator.of(tester.element(find.byType(PDFViewer))).pop();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        onError(const PdfException('refresh_token=late-secret'));
+
+        expect(tester.takeException(), isNull);
+        final messages = captured.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('preview failed'));
+        expect(messages, isNot(contains('private-pdf-token')));
+        expect(messages, isNot(contains('late-secret')));
+      } finally {
+        registry.resetForTesting();
+      }
+    });
+
+    testWidgets('cancels the download when its route is popped externally',
+        (tester) async {
+      final tracking = _TrackingDownloadAttachmentForWebInteractor();
+      Get.delete<DownloadAttachmentForWebInteractor>();
+      Get.put<DownloadAttachmentForWebInteractor>(tracking);
+
+      await pumpViewer(tester);
+      expect(tracking.issuedCancelToken, isNotNull);
+      expect(tracking.issuedCancelToken!.isCancelled, isFalse);
+
+      Navigator.of(tester.element(find.byType(PDFViewer))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(tracking.issuedCancelToken!.isCancelled, isTrue);
+    });
+
+    testWidgets('handles a malformed PDF attachment without a blob ID',
+        (tester) async {
+      await pumpViewer(
+        tester,
+        previewAttachment: Attachment(name: 'missing-blob.pdf'),
+      );
+
+      expect(tester.takeException(), isNull);
+      final topBar = tester.widget<TopBarWidget>(find.byType(TopBarWidget));
+      expect(topBar.downloadAction, isNull);
+      expect(topBar.printAction, isNull);
+      expect(topBar.closeAction, isNotNull);
+    });
+
     testWidgets(
       'should return no password without a prompt once the viewer is closed',
       (tester) async {
@@ -323,14 +421,17 @@ void main() {
     );
 
     testWidgets(
-      'should show the error itself for any other load failure',
+      'uses a localized safe error instead of exposing PDF parser diagnostics',
       (tester) async {
         final pdfViewer = await pumpPdfViewer(tester);
-        const error = PdfException('Failed to load PDF document');
+        const error = PdfException(
+          'Failed to load https://mail.example/download?access_token=private-pdf-token',
+        );
 
         final banner = buildErrorBanner(tester, pdfViewer, error);
 
-        expect(banner.textContent, error.toString());
+        expect(banner.textContent, appLocalizations.noPreviewAvailable);
+        expect(banner.textContent, isNot(contains('private-pdf-token')));
       },
     );
   });

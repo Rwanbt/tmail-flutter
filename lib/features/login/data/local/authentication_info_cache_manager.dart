@@ -37,8 +37,8 @@ class AuthenticationInfoCacheManager extends CacheManagerInteraction {
       log('$runtimeType::migrateHiveToIsolatedHive(): Length of legacyMapItems: ${legacyMapItems.length}');
       await _authenticationInfoCacheClient.insertMultipleItem(legacyMapItems);
       log('$runtimeType::migrateHiveToIsolatedHive(): ✅ Migrate Hive box "${_authenticationInfoCacheClient.tableName}" → IsolatedHive DONE');
-    } catch (e) {
-      logWarning('$runtimeType::migrateHiveToIsolatedHive(): ❌ Migrate Hive box "${_authenticationInfoCacheClient.tableName}" → IsolatedHive FAILED, Error: $e');
+    } catch (_) {
+      logWarning('AuthenticationInfoCacheManager::migrateHiveToIsolatedHive: migration failed');
     }
   }
 }

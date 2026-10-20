@@ -570,11 +570,22 @@ class HtmlUtils {
   }
 
   static String validateHtmlImageResourceMimeType(String mimeType) {
-    if (mimeType.endsWith('svg')) {
-      mimeType = 'image/svg+xml';
-    }
-    log('HtmlUtils::validateHtmlImageResourceMimeType:mimeType: $mimeType');
-    return mimeType;
+    // This value is embedded into data: URIs, including those generated from
+    // sender-controlled MIME headers. Never allow active HTML/XML/SVG content,
+    // separators or quotes to become the data URI media type.
+    const safeRasterMimeTypes = {
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+      'image/avif',
+    };
+    final normalized = mimeType.trim().toLowerCase();
+    if (normalized == 'image/jpg') return 'image/jpeg';
+    if (safeRasterMimeTypes.contains(normalized)) return normalized;
+    logWarning('HtmlUtils::validateHtmlImageResourceMimeType: unsupported image MIME type');
+    return 'application/octet-stream';
   }
 
   static String convertBase64ToImageResourceData({

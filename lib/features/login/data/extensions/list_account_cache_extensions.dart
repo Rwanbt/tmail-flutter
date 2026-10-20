@@ -7,9 +7,9 @@ extension ListAccountCacheExtension on List<AccountCache> {
 
   List<AccountCache> removeDuplicated() {
     final listAccountId = map((account) => account.accountId).nonNulls.toSet();
-    log('ListAccountCacheExtension::removeDuplicated:listAccountId: $listAccountId');
+    log('ListAccountCacheExtension::removeDuplicated: removing repeated account IDs');
     retainWhere((account) => listAccountId.remove(account.accountId));
-    log('ListAccountCacheExtension::removeDuplicated:listAccount: $this');
+    log('ListAccountCacheExtension::removeDuplicated: ${length} accounts retained');
     return this;
   }
 

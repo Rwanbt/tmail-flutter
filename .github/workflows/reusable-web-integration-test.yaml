@@ -14,16 +14,18 @@ jobs:
   web_integration_test:
     permissions:
       contents: "read"
-      id-token: "write"
 
     name: Run integration tests for web
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"

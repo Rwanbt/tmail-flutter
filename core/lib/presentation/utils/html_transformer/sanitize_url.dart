@@ -22,10 +22,26 @@ class SanitizeUrl {
       } else {
         originalUrl = '';
       }
+      if (originalUrl.isNotEmpty) {
+        final parsed = Uri.tryParse(originalUrl);
+        // Links with credentials in the authority can display a trusted
+        // looking hostname while navigating to an attacker-controlled host.
+        // Auto-linked content must always have an unambiguous HTTP(S) host.
+        if (parsed == null ||
+            (parsed.scheme != 'http' && parsed.scheme != 'https') ||
+            parsed.host.isEmpty ||
+            parsed.userInfo.isNotEmpty) {
+          return '';
+        }
+      }
       return originalUrl;
-    } catch (e) {
-      logWarning('SanitizeUrl::process:Exception = $e');
-      return inputText;
+    } catch (_) {
+      // Decoder exceptions can include fragments of the untrusted email body,
+      // including embedded URLs with private query parameters. Do not log it.
+      logWarning('SanitizeUrl::process: rejected malformed URL');
+      // Never turn a decoder failure into an approved link: the caller
+      // renders untrusted email HTML and may otherwise preserve a hostile href.
+      return '';
     }
   }
 }

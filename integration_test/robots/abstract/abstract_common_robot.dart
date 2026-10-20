@@ -25,6 +25,7 @@ import '../../base/core_robot.dart';
 import '../../models/provisioning_email.dart';
 import '../../utils/test_timeouts.dart';
 import '../../utils/wait_for_mailbox_ready.dart' as wait_for_mailbox_ready;
+import '../../utils/provisioning_guards.dart';
 
 abstract class AbstractCommonRobot extends CoreRobot {
   AbstractCommonRobot(super.$);
@@ -41,25 +42,24 @@ abstract class AbstractCommonRobot extends CoreRobot {
     Role? folderLocationRole,
   }) async {
     ComposerBindings().dependencies();
+    try {
+      await waitForMailboxReady();
+      final mailboxDashBoardController = Get.find<MailboxDashBoardController>();
+      final createNewAndSendEmailInteractor =
+          Get.find<CreateNewAndSendEmailInteractor>();
+      final threadController = Get.find<ThreadController>();
 
-    await waitForMailboxReady();
-    final mailboxDashBoardController = Get.find<MailboxDashBoardController>();
-    final createNewAndSendEmailInteractor =
-        Get.find<CreateNewAndSendEmailInteractor>();
-    final threadController = Get.find<ThreadController>();
+      final identity = requireProvisioningIdentity(await _getIdentity());
 
-    final identity = await _getIdentity();
+      // All submissions must actually finish with SendEmailSuccess. The
+      // interactor emits Either failure values without throwing exceptions.
+      await Future.wait(provisioningEmails.map((provisioningEmail) async {
+        final attachments = await Future.wait(
+          provisioningEmail.fileInfos.map(uploadAttachments),
+        );
 
-    if (identity == null) return;
-
-    // Provision emails
-    await Future.wait(provisioningEmails.map((provisioningEmail) async {
-      final attachments =
-          await Future.wait(provisioningEmail.fileInfos.map(uploadAttachments));
-
-      // Create and send email
-      return await createNewAndSendEmailInteractor
-          .execute(
+        await requireProvisioningSendSuccess(
+          createNewAndSendEmailInteractor.execute(
             createEmailRequest: CreateEmailRequest(
               session: mailboxDashBoardController.sessionCurrent!,
               accountId: mailboxDashBoardController.accountId.value!,
@@ -80,20 +80,21 @@ abstract class AbstractCommonRobot extends CoreRobot {
               hasRequestReadReceipt: requestReadReceipt,
               keywords: provisioningEmail.labels.keywords,
             ),
-          )
-          .last;
-    }));
+          ),
+        );
+      }));
 
-    // Web e2e browser storage can retain mailbox data from a preceding test.
-    // A normal refresh may return that cache while the server-side provisioning
-    // change is still being reconciled, so force a fresh query on web only.
-    if (refreshEmailView) {
-      await threadController.refreshAllEmail(
-        shouldClearCache: PlatformInfo.isWeb,
-      );
+      // Web e2e browser storage can retain mailbox data from a preceding test.
+      // This dispatches a fresh query; delivery into the Inbox is eventually
+      // consistent and is separately observed by WebThreadRobot.
+      if (refreshEmailView) {
+        await threadController.refreshAllEmail(
+          shouldClearCache: PlatformInfo.isWeb,
+        );
+      }
+    } finally {
+      ComposerBindings().dispose();
     }
-
-    ComposerBindings().dispose();
   }
 
   Future<Identity?> _getIdentity() async {

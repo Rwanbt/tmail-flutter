@@ -3,6 +3,7 @@ import 'package:core/data/network/config/dynamic_url_interceptors.dart';
 import 'package:core/presentation/resources/image_paths.dart';
 import 'package:core/presentation/utils/app_toast.dart';
 import 'package:core/presentation/utils/responsive_utils.dart';
+import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:core/utils/platform_info.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +54,7 @@ import 'package:tmail_ui_user/main/utils/twake_app_manager.dart';
 import 'package:uuid/uuid.dart';
 
 import 'login_controller_test.mocks.dart';
+import '../../../fixtures/capturing_log_handler.dart';
 
 class _MinifiedLikeException implements Exception {
   @override
@@ -474,6 +476,29 @@ void main() {
   });
 
   group('LoginController::handleUrgentException::', () {
+    test('never logs callback codes or exception details on urgent login failure', () {
+      final registry = AppLoggerRegistry.instance;
+      final logs = CapturingLogHandler();
+      registry.resetForTesting();
+      registry.registerHandler(logs);
+      try {
+        loginController.handleUrgentException(
+          failure: AuthenticateOidcOnBrowserFailure(
+            Exception('code=private-authorization-code'),
+            ssoConfirmed: true,
+          ),
+          exception: Exception('refresh_token=private-refresh-token'),
+        );
+        expect(loginController.loginFormType.value, LoginFormType.retry);
+        final messages = logs.records.map((record) => record.rawMessage).join(' ');
+        expect(messages, contains('handleUrgentException'));
+        expect(messages, isNot(contains('private-authorization-code')));
+        expect(messages, isNot(contains('private-refresh-token')));
+      } finally {
+        registry.resetForTesting();
+      }
+    });
+
     test('should call _getOIDCConfigurationInteractor when failure is CheckOIDCIsAvailableFailure', () {
       // Arrange
       final failure = CheckOIDCIsAvailableFailure(CanNotFoundOIDCLinks());

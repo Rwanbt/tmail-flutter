@@ -25,7 +25,7 @@ extension EmailAttachmentClassifierExtension on Email {
     final inlineImages = <Attachment>[];
     final orphanedInlineImages = <Attachment>[];
     for (final a in allInlineImages) {
-      (referencedCids.contains(a.cid) ? inlineImages : orphanedInlineImages).add(a);
+      (referencedCids.contains(_normalizeCid(a.cid)) ? inlineImages : orphanedInlineImages).add(a);
     }
     // Dedupe: undefined-disposition + cid attachments satisfy both
     // isOutsideAttachment and listAttachmentsDisplayedInContent predicates.
@@ -47,11 +47,26 @@ Set<String> _extractReferencedCids(String htmlContent) {
   if (htmlContent.isEmpty) return {};
   try {
     return parse(htmlContent)
-      .querySelectorAll('img[src^="cid:"]')
-      .map((img) => img.attributes['src']?.substring('cid:'.length).trim())
+      .querySelectorAll('img[src]')
+      .map((img) => img.attributes['src']?.trim())
+      .where((src) => src?.toLowerCase().startsWith('cid:') == true)
+      .map((src) => _normalizeCid(src!.substring('cid:'.length)))
       .nonNulls
       .toSet();
   } catch (_) {
     return {};
+  }
+}
+
+String? _normalizeCid(String? value) {
+  if (value == null) return null;
+  final trimmed = value.trim();
+  final bare = trimmed.startsWith('<') && trimmed.endsWith('>')
+      ? trimmed.substring(1, trimmed.length - 1)
+      : trimmed;
+  try {
+    return Uri.decodeComponent(bare);
+  } on FormatException {
+    return null;
   }
 }

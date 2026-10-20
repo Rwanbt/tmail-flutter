@@ -9,6 +9,7 @@ import 'package:tmail_ui_user/features/composer/presentation/styles/attachment_i
 import 'package:tmail_ui_user/features/composer/presentation/widgets/attachment_progress_loading_composer_widget.dart';
 import 'package:tmail_ui_user/features/upload/domain/model/upload_task_id.dart';
 import 'package:tmail_ui_user/features/upload/presentation/model/upload_file_status.dart';
+import 'package:tmail_ui_user/main/localizations/app_localizations.dart';
 
 typedef OnDeleteAttachmentAction = void Function(UploadTaskId uploadTaskId);
 typedef OnPreviewAttachmentAction = void Function(UploadTaskId uploadTaskId);
@@ -48,6 +49,10 @@ class AttachmentItemComposerWidget extends StatelessWidget with AppLoaderMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Screen readers and hover users need a named action for each attachment.
+    // Use the same bidi-safe name that the visible row renders.
+    final accessibleName = fileName.sanitizedBidiForDisplay;
+    final translations = AppLocalizations.of(context);
     Widget bodyItem = Row(
       children: [
         Expanded(
@@ -85,21 +90,31 @@ class AttachmentItemComposerWidget extends StatelessWidget with AppLoaderMixin {
           ),
         ),
         const SizedBox(width: AttachmentItemComposerWidgetStyle.space),
-        TMailButtonWidget.fromIcon(
+        if (onDeleteAttachmentAction != null)
+          TMailButtonWidget.fromIcon(
           icon: imagePaths.icCancel,
+          tooltipMessage: '${translations.remove}: $accessibleName',
           iconSize: AttachmentItemComposerWidgetStyle.deleteIconSize,
           borderRadius: AttachmentItemComposerWidgetStyle.deleteIconRadius,
           padding: AttachmentItemComposerWidgetStyle.deleteIconPadding,
           iconColor: AttachmentItemComposerWidgetStyle.deleteIconColor,
-          onTapActionCallback: () => onDeleteAttachmentAction?.call(uploadTaskId),
+          onTapActionCallback: () => onDeleteAttachmentAction!(uploadTaskId),
         )
       ],
     );
 
     if (onPreviewAttachmentAction != null) {
-      bodyItem = InkWell(
+      bodyItem = Semantics(
+        container: true,
+        explicitChildNodes: true,
+        button: true,
+        label: '${translations.preview}: $accessibleName',
         onTap: () => onPreviewAttachmentAction!(uploadTaskId),
-        child: bodyItem,
+        child: InkWell(
+          excludeFromSemantics: true,
+          onTap: () => onPreviewAttachmentAction!(uploadTaskId),
+          child: bodyItem,
+        ),
       );
     }
 

@@ -75,8 +75,13 @@ class HtmlAnalyzer {
     required Uri? uploadUri,
   }) async {
     final document = parse(emailContent);
-    final listImgTag = document.querySelectorAll('img[src^="data:image/"]');
-    final cidImgTags = document.querySelectorAll('img[src^="$cidPrefixKey"]');
+    final listImgTag = document.querySelectorAll('img[src]')
+        .where((img) => isInlineBase64ImageDataUri(img.attributes['src']))
+        .toList();
+    final cidImgTags = document.querySelectorAll('img[src]').where((img) {
+      final source = img.attributes['src']?.trim();
+      return source?.toLowerCase().startsWith(cidPrefixKey) ?? false;
+    }).toList();
 
     log('HtmlAnalyzer::replaceImageBase64ToImageCID:listImgTagLength = ${listImgTag.length} | inlineAttachments = ${inlineAttachments.length}');
 

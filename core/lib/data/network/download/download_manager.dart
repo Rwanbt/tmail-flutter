@@ -18,6 +18,29 @@ class DownloadManager {
 
   DownloadManager(this._downloadClient);
 
+  /// Attachment filenames are untrusted JMAP/email metadata. Never let
+  /// them escape [directoryToSave], even when the server returns Windows
+  /// separators on a Unix host (or vice versa).
+  static String validateDownloadFilename(String filename) {
+    if (filename.isEmpty ||
+        filename.length > 255 ||
+        filename == '.' ||
+        filename == '..' ||
+        filename != filename.trim() ||
+        RegExp(r'[/\\\x00-\x1f\x7f]').hasMatch(filename) ||
+        RegExp(r'[. ]$').hasMatch(filename) ||
+        RegExp(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)',
+                caseSensitive: false)
+            .hasMatch(filename)) {
+      throw ArgumentError.value(
+        filename,
+        'filename',
+        'Unsafe attachment filename',
+      );
+    }
+    return filename;
+  }
+
   Future<DownloadedResponse> downloadFile(
       String downloadUrl,
       Future<Directory> directoryToSave,
@@ -25,21 +48,35 @@ class DownloadManager {
       String basicAuth,
       {CancelToken? cancelToken}
   ) async {
+    // Check before starting the HTTP request or opening any output file.
+    final safeFilename = validateDownloadFilename(filename);
     final streamController = StreamController<DownloadedResponse>();
 
     try {
       await Future.wait([
         _downloadClient.downloadFile(downloadUrl, basicAuth, cancelToken),
         directoryToSave
-      ]).then((values) {
+      ]).then((values) async {
         final response = (values[0] as ResponseBody);
         final mediaType = _extractMediaTypeFromResponse(response);
         final fileStream = response.stream;
-        final tempFilePath = '${(values[1] as Directory).absolute.path}/$filename';
+        // Two different emails (or accounts) can contain an attachment with
+        // the same name. Give each download its own directory so a later
+        // FileMode.write cannot replace an earlier private attachment.
+        final isolatedDirectory = await (values[1] as Directory)
+            .createTemp('tmail-attachment-');
+        final tempFilePath =
+            '${isolatedDirectory.absolute.path}/$safeFilename';
 
         final file = File(tempFilePath);
-        file.createSync(recursive: true);
-        var randomAccessFile = file.openSync(mode: FileMode.write);
+        late RandomAccessFile randomAccessFile;
+        try {
+          file.createSync();
+          randomAccessFile = file.openSync(mode: FileMode.write);
+        } catch (_) {
+          await isolatedDirectory.delete(recursive: true);
+          rethrow;
+        }
         late StreamSubscription subscription;
 
         subscription = fileStream
@@ -49,17 +86,20 @@ class DownloadManager {
               randomAccessFile.writeFrom(data).then((accessFile) {
                 randomAccessFile = accessFile;
                 subscription.resume();
-                if (cancelToken != null && cancelToken.isCancelled) {
-                  streamController.sink.addError(CancelDownloadFileException(cancelToken.cancelError?.message));
-                }
+                // onDone is responsible for one cancellation result and
+                // cleanup; never emit a second error from this callback.
               }).catchError((error) async {
                 await subscription.cancel();
+                await randomAccessFile.close();
+                await isolatedDirectory.delete(recursive: true);
                 streamController.sink.addError(CommonDownloadFileException(error.toString()));
                 await streamController.close();
               });
         }, onDone: () async {
           await randomAccessFile.close();
           if (cancelToken != null && cancelToken.isCancelled) {
+            if (await file.exists()) await file.delete();
+            await isolatedDirectory.delete();
             streamController.sink.addError(CancelDownloadFileException(cancelToken.cancelError?.message));
           } else {
             streamController.sink.add(DownloadedResponse(tempFilePath, mediaType: mediaType));
@@ -68,6 +108,7 @@ class DownloadManager {
         }, onError: (error) async {
           await randomAccessFile.close();
           await file.delete();
+          await isolatedDirectory.delete();
           streamController.sink.addError(CommonDownloadFileException(error.toString()));
           await streamController.close();
         });

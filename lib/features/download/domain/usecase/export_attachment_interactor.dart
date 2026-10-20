@@ -55,7 +55,7 @@ class ExportAttachmentInteractor with OidcTokenResolveMixin {
 
       yield Right<Failure, Success>(ExportAttachmentSuccess(downloadedResponse));
     } catch (exception) {
-      logWarning('ExportAttachmentInteractor::execute(): exception: $exception');
+      logWarning('ExportAttachmentInteractor::execute(): attachment export failed');
       yield Left<Failure, Success>(ExportAttachmentFailure(exception));
     }
   }

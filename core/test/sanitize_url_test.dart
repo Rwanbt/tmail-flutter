@@ -109,16 +109,33 @@ void main() {
       );
     });
 
-    test('SHOULD returns original input WHEN get an exception', () {
+    test('SHOULD fail closed WHEN decoding an untrusted URL throws', () {
       // Arrange
       const inputText = "%E0%A4%A";
-      const expectedOutput = inputText;
+      const expectedOutput = '';
 
       // Act
       final result = sanitizeUrl.process(inputText);
 
       // Assert
       expect(result, expectedOutput);
+    });
+
+    test('SHOULD never return a private query parameter when URL decoding fails', () {
+      const secret = 'SENTINEL_PRIVATE_JMAP_TOKEN_238';
+      final result = sanitizeUrl.process('https://example.org/?access_token=$secret%E0%A4%A');
+      expect(result, '');
+      expect(result.contains(secret), isFalse);
+    });
+
+    test('SHOULD reject URL authority userinfo spoofing in autolink text', () {
+      expect(sanitizeUrl.process('https://trusted.example@evil.example/path'), '');
+      expect(sanitizeUrl.process('http://alice:password@evil.example/'), '');
+    });
+
+    test('SHOULD retain legitimate HTTPS host with an explicit port', () {
+      expect(sanitizeUrl.process('https://example.org:8443/inbox'),
+          'https://example.org:8443/inbox');
     });
   });
 }

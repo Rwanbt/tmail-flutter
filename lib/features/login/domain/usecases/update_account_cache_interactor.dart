@@ -16,7 +16,7 @@ class UpdateAccountCacheInteractor {
 
   Stream<Either<Failure, Success>> execute({required Session session, String? baseUrl}) async* {
     final apiUrl = _getQualifiedApiUrl(session: session, baseUrl: baseUrl);
-    log('UpdateAccountCacheInteractor::execute: ApiUrl = $apiUrl');
+    log('UpdateAccountCacheInteractor::execute: updating account metadata');
     try{
       yield Right(UpdatingAccountCache());
 
@@ -44,8 +44,8 @@ class UpdateAccountCacheInteractor {
   String _getQualifiedApiUrl({required Session session, String? baseUrl}) {
     try {
       return session.getQualifiedApiUrl(baseUrl: baseUrl);
-    } catch (e) {
-      logWarning('UpdateAccountCacheInteractor::_getQualifiedApiUrl:Exception = $e');
+    } catch (_) {
+      logWarning('UpdateAccountCacheInteractor::_getQualifiedApiUrl: invalid session URL');
       return '';
     }
   }

@@ -1,0 +1,65 @@
+name: Unsigned native mobile build smoke
+
+on:
+  pull_request:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  build-mobile:
+    name: Unsigned ${{ matrix.target }} build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: android
+            runner: ubuntu-latest
+          - target: ios
+            runner: macos-15
+
+    env:
+      FLUTTER_VERSION: 3.38.9
+
+    steps:
+      - name: Checkout unprivileged sources
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Setup Java for Android
+        if: matrix.target == 'android'
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Xcode for iOS simulator
+        if: matrix.target == 'ios'
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: '26.2'
+      - name: Prepare empty Firebase settings for unprivileged smoke build
+        env:
+          FIREBASE_ENV: ''
+        run: ./scripts/setup-firebase.sh
+      - name: Generate workspace dependencies and source
+        run: ./scripts/prebuild.sh
+      - name: Build Android debug APK without production signing
+        if: matrix.target == 'android'
+        run: |
+          flutter build apk --debug --no-pub
+          test -s build/app/outputs/flutter-apk/app-debug.apk
+      - name: Build iOS simulator app without distribution signing
+        if: matrix.target == 'ios'
+        run: |
+          flutter build ios --simulator --debug --no-pub
+          test -d build/ios/iphonesimulator/Runner.app

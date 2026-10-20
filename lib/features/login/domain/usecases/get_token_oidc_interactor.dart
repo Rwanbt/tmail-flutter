@@ -53,7 +53,7 @@ class GetTokenOIDCInteractor {
         baseUri,
       ));
     } on PlatformException catch (e) {
-      logWarning('GetTokenOIDCInteractor::execute(): PlatformException ${e.message} - ${e.stacktrace}');
+      logWarning('GetTokenOIDCInteractor::execute(): token request failed on platform');
       if (NoSuitableBrowserForOIDCException.verifyException(e)) {
         yield Left<Failure, Success>(GetTokenOIDCFailure(
           NoSuitableBrowserForOIDCException(),
@@ -65,7 +65,7 @@ class GetTokenOIDCInteractor {
         );
       }
     } catch (e) {
-      logWarning('GetTokenOIDCInteractor::execute(): $e');
+      logWarning('GetTokenOIDCInteractor::execute(): token request failed');
       yield Left<Failure, Success>(
         GetTokenOIDCFailure(e, ssoConfirmed: config.ssoConfirmed),
       );

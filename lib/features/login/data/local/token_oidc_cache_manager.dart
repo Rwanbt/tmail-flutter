@@ -13,7 +13,7 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
   TokenOidcCacheManager(this._tokenOidcCacheClient);
 
   Future<TokenOIDC> getTokenOidc(String tokenIdHash) async {
-    log('TokenOidcCacheManager::getTokenOidc(): tokenIdHash: $tokenIdHash');
+    log('TokenOidcCacheManager::getTokenOidc: loading stored token');
     try {
       final tokenCache = await _tokenOidcCacheClient.getItem(tokenIdHash);
       log('TokenOidcCacheManager::getTokenOidc(): tokenCache found: ${tokenCache != null}');
@@ -23,15 +23,13 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
       return tokenCache.toTokenOidc();
     } on AppBaseException {
       rethrow;
-    } catch (e, stackTrace) {
+    } catch (e) {
       // AES-CBC decryption failed (e.g. non-block-aligned bytes from a partial
       // write or cross-isolate race). Clear the corrupted box so the next read
       // starts clean and triggers normal re-authentication instead of looping.
       logError(
         'TokenOidcCacheManager::getTokenOidc(): '
         'token_box_corrupted=true | error_type=${e.runtimeType} | clearing box',
-        exception: e,
-        stackTrace: stackTrace,
       );
       await _safelyClearBox();
       throw NotFoundStoredTokenException();
@@ -47,7 +45,7 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
   }
 
   Future<void> _persistAtKey(String key, TokenOIDC tokenOIDC) async {
-    log('TokenOidcCacheManager::_persistAtKey(): keyHash: $key');
+    log('TokenOidcCacheManager::_persistAtKey: persisting token');
     // Crash-safe persist: write the new token FIRST, then prune stale entries,
     // so the box is never empty if the process is killed mid-write.
     await _tokenOidcCacheClient.insertItem(key, tokenOIDC.toTokenOidcCache());
@@ -56,7 +54,7 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
       log('TokenOidcCacheManager::_persistAtKey(): done');
     } on AppBaseException {
       rethrow;
-    } catch (e, stackTrace) {
+    } catch (e) {
       // _removeStaleTokens calls getMapItems() → toMap(), which iterates ALL entries
       // and decrypts each one. If the box contains a corrupted entry (e.g. from a
       // cross-isolate partial write), toMap() throws before prune completes.
@@ -64,18 +62,14 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
       logError(
         'TokenOidcCacheManager::_persistAtKey(): '
         'box_corrupted=true | error_type=${e.runtimeType} | clearing and re-inserting token',
-        exception: e,
-        stackTrace: stackTrace,
       );
       await _safelyClearBox();
       try {
         await _tokenOidcCacheClient.insertItem(key, tokenOIDC.toTokenOidcCache());
-      } catch (insertError, insertStackTrace) {
+      } catch (insertError) {
         logError(
           'TokenOidcCacheManager::_persistAtKey(): '
           're-insert after clear also failed | error_type=${insertError.runtimeType}',
-          exception: insertError,
-          stackTrace: insertStackTrace,
         );
       }
     }
@@ -92,7 +86,7 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
   }
 
   Future<void> deleteTokenOidc(String tokenIdHash) {
-    log('TokenOidcCacheManager::deleteTokenOidc(): $tokenIdHash');
+    log('TokenOidcCacheManager::deleteTokenOidc: deleting token');
     return _tokenOidcCacheClient.deleteItem(tokenIdHash);
   }
 
@@ -103,12 +97,12 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
   Future<void> _safelyClearBox() async {
     try {
       await _tokenOidcCacheClient.clearAllData();
-    } catch (e) {
-      logWarning('TokenOidcCacheManager::_safelyClearBox(): clear failed, deleting box from disk | $e');
+    } catch (_) {
+      logWarning('TokenOidcCacheManager::_safelyClearBox: clear failed, deleting box from disk');
       try {
         await _tokenOidcCacheClient.deleteBox();
-      } catch (e2) {
-        logWarning('TokenOidcCacheManager::_safelyClearBox(): deleteBox also failed | $e2');
+      } catch (_) {
+        logWarning('TokenOidcCacheManager::_safelyClearBox: deleteBox also failed');
       }
     }
   }
@@ -122,8 +116,8 @@ class TokenOidcCacheManager extends CacheManagerInteraction {
       log('$runtimeType::migrateHiveToIsolatedHive(): Length of legacyMapItems: ${legacyMapItems.length}');
       await _tokenOidcCacheClient.insertMultipleItem(legacyMapItems);
       log('$runtimeType::migrateHiveToIsolatedHive(): ✅ Migrate Hive box "${_tokenOidcCacheClient.tableName}" → IsolatedHive DONE');
-    } catch (e) {
-      logWarning('$runtimeType::migrateHiveToIsolatedHive(): ❌ Migrate Hive box "${_tokenOidcCacheClient.tableName}" → IsolatedHive FAILED, Error: $e');
+    } catch (_) {
+      logWarning('TokenOidcCacheManager::migrateHiveToIsolatedHive: migration failed');
     }
   }
 }

@@ -61,7 +61,7 @@ class AuthenticationClientMobile with AuthenticationClientInteractionMixin
       discoveryResponse,
     );
     final endSession = await _appAuth.endSession(endSessionRequest);
-    log('$runtimeType::logoutOidc(): ${endSession.state}');
+    log('$runtimeType::logoutOidc(): end-session response received');
     return endSession.state?.isNotEmpty == true;
   }
 
@@ -90,7 +90,7 @@ class AuthenticationClientMobile with AuthenticationClientInteractionMixin
         throw AccessTokenInvalidException();
       }
     } catch (e) {
-      logWarning('$runtimeType::refreshingTokensOIDC(): $e');
+      logWarning('$runtimeType::refreshingTokensOIDC(): refresh failed');
       throw handleException(e);
     }
   }

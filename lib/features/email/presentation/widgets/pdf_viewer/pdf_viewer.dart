@@ -97,9 +97,20 @@ class _PDFViewerState extends State<PDFViewer> {
       return;
     }
 
+    // A malformed or incomplete email part must show the unavailable-preview
+    // state instead of crashing the entire attachment dialog.
+    final blobId = widget.attachment.blobId;
+    if (blobId == null) {
+      _pdfViewStateNotifier.value = DownloadAttachmentForWebFailure(
+        attachment: widget.attachment,
+        exception: const FormatException('PDF attachment has no blob ID'),
+      );
+      return;
+    }
+
     _downloadAttachmentCancelToken = CancelToken();
     _downloadInteractorStreamSubscription = _downloadAttachmentForWebInteractor!.execute(
-      DownloadTaskId(widget.attachment.blobId!.value),
+      DownloadTaskId(blobId.value),
       widget.attachment, 
       widget.accountId,
       widget.downloadUrl,
@@ -119,10 +130,13 @@ class _PDFViewerState extends State<PDFViewer> {
 
   @override
   void dispose() {
-    _pdfViewStateNotifier.dispose();
+    // The route can be removed by back navigation without calling _closeView.
+    // In both cases stop the HTTP request before releasing its listeners.
+    _downloadAttachmentCancelToken?.cancel();
+    _downloadInteractorStreamSubscription?.cancel();
     _downloadAttachmentStreamSubscription.cancel();
     _downloadAttachmentStreamController.close();
-    _downloadInteractorStreamSubscription?.cancel();
+    _pdfViewStateNotifier.dispose();
     _downloadInteractorStreamSubscription = null;
     _downloadAttachmentCancelToken = null;
     super.dispose();
@@ -175,7 +189,10 @@ class _PDFViewerState extends State<PDFViewer> {
               previewerOptions: PreviewerOptions(
                 previewerState: previewerState,
                 onError: (error) {
-                  logWarning('_PDFViewerState::build:openData:onError:: $error');
+                  // PDF parser and transport exceptions can embed private
+                  // download URLs, bearer tokens or document content.
+                  logWarning('_PDFViewerState::build:openData:onError: preview failed');
+                  if (!mounted) return;
                   _pdfViewStateNotifier.value = DownloadAttachmentForWebFailure(exception: error);
                 },
                 errorMessage: appLocalizations.noPreviewAvailable,
@@ -186,7 +203,7 @@ class _PDFViewerState extends State<PDFViewer> {
                   title: appLocalizations.cannotPreviewPdf,
                   textContent: error is PdfPasswordException
                     ? appLocalizations.pdfPasswordNotProvided
-                    : error.toString(),
+                    : appLocalizations.noPreviewAvailable,
                   confirmText: appLocalizations.close,
                   onConfirmButtonAction: popBack,
                 );

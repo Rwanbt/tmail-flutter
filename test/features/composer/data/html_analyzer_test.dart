@@ -73,6 +73,71 @@ void main() {
       expect(result.value2.first.cid, 'test123');
     });
 
+    test('send converts an uppercase data URI using its uploaded CID', () async {
+      const htmlContent = '<img id="CID:test123" src="DATA:IMAGE/PNG;BASE64,iVBORw0KGgo=">';
+      final inlineAttachments = {
+        'test123': Attachment(
+          blobId: Id('image-blob'),
+          type: MediaType('image', 'png'),
+          disposition: ContentDisposition.inline,
+          cid: 'test123',
+        ),
+      };
+
+      final result = await htmlAnalyzer.replaceImageBase64ToImageCID(
+        emailContent: htmlContent,
+        inlineAttachments: inlineAttachments,
+        uploadUri: Uri.parse('https://example.com/upload'),
+      );
+
+      expect(parse(result.value1).querySelector('img')?.attributes['src'], 'cid:test123');
+      expect(result.value2.single.blobId, Id('image-blob'));
+      verifyNever(mockFileUploader.uploadAttachment(any, any, any));
+    });
+
+    test('send uploads a new uppercase data URI as an inline attachment', () async {
+      const htmlContent = '<img src="DATA:IMAGE/PNG;BASE64,iVBORw0KGgo=">';
+      final uploadUri = Uri.parse('https://example.com/upload');
+      when(mockUuid.v1()).thenReturn('new-id');
+      when(mockFileUploader.uploadAttachment(any, any, any))
+          .thenAnswer((_) async => Attachment(
+                blobId: Id('new-blob'),
+                type: MediaType('image', 'png'),
+              ));
+
+      final result = await htmlAnalyzer.replaceImageBase64ToImageCID(
+        emailContent: htmlContent,
+        inlineAttachments: <String, Attachment>{},
+        uploadUri: uploadUri,
+      );
+
+      expect(parse(result.value1).querySelector('img')?.attributes['src'], 'cid:new-id');
+      expect(result.value2.single.cid, 'new-id');
+      verify(mockFileUploader.uploadAttachment(any, any, uploadUri)).called(1);
+    });
+
+    test('retains an uppercase percent-encoded CID attachment when preparing an email', () async {
+      const htmlContent = '<p><img src="CID:photo%40example.org"></p>';
+      final inlineAttachments = {
+        '<photo@example.org>': Attachment(
+          blobId: Id('photo-blob'),
+          type: MediaType('image', 'png'),
+          disposition: ContentDisposition.inline,
+          cid: '<photo@example.org>',
+        ),
+      };
+
+      final result = await htmlAnalyzer.replaceImageBase64ToImageCID(
+        emailContent: htmlContent,
+        inlineAttachments: inlineAttachments,
+        uploadUri: null,
+      );
+
+      expect(result.value2.length, 1);
+      expect(result.value2.single.blobId, Id('photo-blob'));
+      verifyNever(mockFileUploader.uploadAttachment(any, any, any));
+    });
+
     test(
       'When HTML content has an image with existing CID,\n'
       'but inlineAttachments is empty,\n'
