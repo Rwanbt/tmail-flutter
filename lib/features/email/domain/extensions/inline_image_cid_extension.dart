@@ -4,6 +4,15 @@ import 'package:model/email/attachment.dart';
 
 const String inlineImageCidPrefix = 'cid:';
 
+/// Data URL schemes, media types and the base64 marker are case-insensitive.
+/// HTML pasted from other editors can legitimately use uppercase spellings.
+bool isInlineBase64ImageDataUri(String? src) {
+  final normalized = src?.trim().toLowerCase();
+  return normalized != null &&
+      normalized.startsWith('data:image/') &&
+      normalized.contains(';base64,');
+}
+
 // Content-ID values may arrive bracketed from MIME or URL-encoded in an HTML
 // cid: URL. The scheme is case-insensitive, while the identifier stays
 // case-sensitive. Invalid percent escapes must never match another blob.
@@ -74,7 +83,8 @@ extension InlineImageCidExtension on Map<String, Attachment> {
     String html,
   ) {
     final document = parse(html);
-    final base64ImgTags = document.querySelectorAll('img[src^="data:image/"]');
+    final base64ImgTags = document.querySelectorAll('img[src]')
+        .where((img) => isInlineBase64ImageDataUri(img.attributes['src']));
     final cidImgTags = document.querySelectorAll('img[src]');
 
     final inlineImages = {

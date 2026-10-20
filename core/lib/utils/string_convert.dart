@@ -117,7 +117,7 @@ class StringConvert {
   }
 
   static Uint8List convertBase64ImageTagToBytes(String base64ImageTag) {
-    if (!base64ImageTag.contains('base64,')) {
+    if (!base64ImageTag.toLowerCase().contains(';base64,')) {
       throw ArgumentError('The string is not valid Base64 data from an <img> tag.');
     }
 
@@ -128,13 +128,14 @@ class StringConvert {
 
   static MediaType? getMediaTypeFromBase64ImageTag(String base64ImageTag) {
     try {
-      if (!base64ImageTag.startsWith("data:") || !base64ImageTag.contains(";base64,")) {
+      final normalized = base64ImageTag.toLowerCase();
+      if (!normalized.startsWith("data:") || !normalized.contains(";base64,")) {
         return null;
       }
 
       final mimeType = base64ImageTag.split(";")[0].split(":")[1];
       log('StringConvert::getMediaTypeFromBase64ImageTag:mimeType = $mimeType');
-      return MediaType.parse(mimeType);
+      return MediaType.parse(mimeType.toLowerCase());
     } catch (e) {
       logWarning('StringConvert::getMimeTypeFromBase64ImageTag:Exception = $e');
       return null;
