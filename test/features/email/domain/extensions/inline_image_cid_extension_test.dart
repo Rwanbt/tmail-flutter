@@ -74,6 +74,15 @@ void main() {
       expect(inlineImages, {uploaded});
     });
 
+    test('reload snapshot retains an uploaded image with uppercase data URI', () {
+      const content = '<p><img id="cid:img-1" src="DATA:IMAGE/PNG;BASE64,AAAA"></p>';
+      final (html, inlineImages) =
+          inlineAttachments.replaceUploadedImagesWithCid(content);
+
+      expect(html, '<p><img src="cid:img-1"></p>');
+      expect(inlineImages, {uploaded});
+    });
+
     test('returns the attachment of an image already referenced by cid', () {
       const content = '<p><img src="cid:img-1"></p>';
 
