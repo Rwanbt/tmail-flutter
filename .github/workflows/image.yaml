@@ -3,12 +3,16 @@ on:
     branches:
       - "master"
 
+  pull_request:
+    branches:
+      - "master"
+
 name: Build Docker images
 
 jobs:
   build-dev-image:
     name: Build development image
-    if: github.ref_type == 'branch' && github.ref_name == 'master'
+    if: github.event_name == 'pull_request' || (github.ref_type == 'branch' && github.ref_name == 'master')
     runs-on: ubuntu-latest
     environment: dev
 
@@ -27,6 +31,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/tmail-web
           tags: |
             type=ref,event=branch
+            type=ref,event=pr
 
       # Branch pushes validate the actual multi-architecture Docker build but
       # MUST NOT publish without explicit release authorization or registry credentials.
