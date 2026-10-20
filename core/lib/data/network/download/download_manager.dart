@@ -56,16 +56,27 @@ class DownloadManager {
       await Future.wait([
         _downloadClient.downloadFile(downloadUrl, basicAuth, cancelToken),
         directoryToSave
-      ]).then((values) {
+      ]).then((values) async {
         final response = (values[0] as ResponseBody);
         final mediaType = _extractMediaTypeFromResponse(response);
         final fileStream = response.stream;
+        // Two different emails (or accounts) can contain an attachment with
+        // the same name. Give each download its own directory so a later
+        // FileMode.write cannot replace an earlier private attachment.
+        final isolatedDirectory = await (values[1] as Directory)
+            .createTemp('tmail-attachment-');
         final tempFilePath =
-            '${(values[1] as Directory).absolute.path}/$safeFilename';
+            '${isolatedDirectory.absolute.path}/$safeFilename';
 
         final file = File(tempFilePath);
-        file.createSync(recursive: true);
-        var randomAccessFile = file.openSync(mode: FileMode.write);
+        late RandomAccessFile randomAccessFile;
+        try {
+          file.createSync();
+          randomAccessFile = file.openSync(mode: FileMode.write);
+        } catch (_) {
+          await isolatedDirectory.delete(recursive: true);
+          rethrow;
+        }
         late StreamSubscription subscription;
 
         subscription = fileStream
@@ -79,6 +90,8 @@ class DownloadManager {
                 // cleanup; never emit a second error from this callback.
               }).catchError((error) async {
                 await subscription.cancel();
+                await randomAccessFile.close();
+                await isolatedDirectory.delete(recursive: true);
                 streamController.sink.addError(CommonDownloadFileException(error.toString()));
                 await streamController.close();
               });
@@ -86,6 +99,7 @@ class DownloadManager {
           await randomAccessFile.close();
           if (cancelToken != null && cancelToken.isCancelled) {
             if (await file.exists()) await file.delete();
+            await isolatedDirectory.delete();
             streamController.sink.addError(CancelDownloadFileException(cancelToken.cancelError?.message));
           } else {
             streamController.sink.add(DownloadedResponse(tempFilePath, mediaType: mediaType));
@@ -94,6 +108,7 @@ class DownloadManager {
         }, onError: (error) async {
           await randomAccessFile.close();
           await file.delete();
+          await isolatedDirectory.delete();
           streamController.sink.addError(CommonDownloadFileException(error.toString()));
           await streamController.close();
         });

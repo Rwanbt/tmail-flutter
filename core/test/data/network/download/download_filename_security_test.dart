@@ -104,7 +104,8 @@ void main() {
         'synthetic-auth',
       );
 
-      expect(result.filePath, '${directory.absolute.path}/invoice.pdf');
+      expect(File(result.filePath).parent.parent.absolute.path, directory.absolute.path);
+      expect(File(result.filePath).uri.pathSegments.last, 'invoice.pdf');
       expect(await File(result.filePath).readAsBytes(), [1, 2, 3]);
       expect(client.calls, 1);
     });
@@ -154,6 +155,8 @@ void main() {
         await File('${directory.absolute.path}/sensitive.pdf').exists(),
         isFalse,
       );
+      expect(await directory.list().isEmpty, isTrue,
+          reason: 'cancelling a download must also remove its private directory');
     });
   });
 }
