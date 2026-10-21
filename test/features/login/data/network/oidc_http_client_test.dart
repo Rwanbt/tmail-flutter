@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:model/oidc/request/oidc_request.dart';
+import 'package:model/oidc/response/oidc_link_dto.dart';
+import 'package:model/oidc/response/oidc_response.dart';
+import 'package:tmail_ui_user/features/login/domain/model/base_url_oidc_response.dart';
 import 'package:tmail_ui_user/features/login/data/network/interceptors/authorization_interceptors.dart';
 import 'package:tmail_ui_user/features/login/data/network/oidc_error.dart';
 import 'package:tmail_ui_user/features/login/data/network/oidc_http_client.dart';
@@ -86,6 +89,69 @@ void main() {
           named: 'options',
         ),
       )).called(1);
+    });
+
+    test('WebFinger must select OIDC issuer relation, not first arbitrary link', () async {
+      final response = OIDCResponse('acct:test@example.org', [
+        OIDCLinkDto(
+          Uri.parse('https://example.org/other-relation'),
+          Uri.parse('https://attacker.example.org/'),
+        ),
+        OIDCLinkDto(
+          Uri.parse(OIDCRequest.relUrl),
+          Uri.parse('https://sso.example.org/realms/twake'),
+        ),
+      ]);
+
+      final config = await oidcHttpClient.getOIDCConfiguration(response);
+      expect(config.authority, 'https://sso.example.org/realms/twake');
+      expect(config.discoveryUrl, 'https://sso.example.org/realms/twake/.well-known/openid-configuration');
+    });
+
+    test('WebFinger missing issuer relation fails closed', () async {
+      final response = OIDCResponse('acct:test@example.org', [
+        OIDCLinkDto(
+          Uri.parse('https://unrelated.example.org/type'),
+          Uri.parse('https://unrelated.example.org/'),
+        ),
+      ]);
+      await expectLater(
+        oidcHttpClient.getOIDCConfiguration(response),
+        throwsA(isA<CanNotFoundOIDCAuthority>()),
+      );
+    });
+
+    test('WebFinger rejects unsafe or malformed issuer URLs', () async {
+      for (final href in [
+        'http://public-idp.example.org',
+        'javascript:alert(1)',
+        'https://user:password@sso.example.org',
+        'https://sso.example.org/issuer?token=secret',
+        'https://sso.example.org/issuer#fragment',
+        '/relative-path',
+      ]) {
+        final response = OIDCResponse('acct:test@example.org', [
+          OIDCLinkDto(Uri.parse(OIDCRequest.relUrl), Uri.parse(href)),
+        ]);
+        await expectLater(
+          oidcHttpClient.getOIDCConfiguration(response),
+          throwsA(isA<CanNotFoundOIDCAuthority>()),
+          reason: 'Untrusted WebFinger issuer must fail closed: $href',
+        );
+      }
+    });
+
+    test('HTTPS base-URL guesses and loopback HTTP remain usable', () async {
+      for (final href in [
+        'https://sso.example.org',
+        'http://localhost:8080',
+        'http://127.0.0.1:8080',
+      ]) {
+        final config = await oidcHttpClient.getOIDCConfiguration(
+          BaseUrlOidcResponse(Uri.parse(href)),
+        );
+        expect(config.authority, href);
+      }
     });
   });
 }
