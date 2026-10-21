@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - "master"
+    # Publishing remains restricted to explicit version tags and prod credentials.
+    tags:
+      - "v*.*.*"
 
 name: Build Docker images
 
