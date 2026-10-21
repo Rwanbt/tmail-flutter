@@ -105,12 +105,17 @@ class OIDCHttpClient {
 
   Future<OIDCDiscoveryResponse> discoverOIDC(OIDCConfiguration configuration) async {
     final result = await _dioClient.getWithNewDio(configuration.discoveryUrl);
-    log('OIDCHttpClient::discoverOIDC(): provider metadata received');
-    if (result is Map<String, dynamic>) {
-      return OIDCDiscoveryResponse.fromJson(result);
-    } else {
-      return OIDCDiscoveryResponse.fromJson(jsonDecode(result));
+    final metadata = result is Map<String, dynamic> ? result : jsonDecode(result);
+    // An OIDC issuer must identify itself exactly in discovery metadata.
+    // Never trust endpoints advertised by a substituted or missing issuer.
+    if (metadata is! Map<String, dynamic> ||
+        metadata['issuer'] is! String ||
+        metadata['issuer'] != configuration.authority) {
+      logWarning('OIDCHttpClient::discoverOIDC(): issuer mismatch or missing issuer');
+      throw InvalidOIDCResponseException();
     }
+    log('OIDCHttpClient::discoverOIDC(): validated provider metadata received');
+    return OIDCDiscoveryResponse.fromJson(metadata);
   }
 
   Future<OidcUserInfo> fetchUserInfo(String userInfoEndpoint) async {
