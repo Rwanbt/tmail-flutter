@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:model/oidc/oidc_configuration.dart';
 import 'package:model/oidc/request/oidc_request.dart';
 import 'package:model/oidc/response/oidc_link_dto.dart';
 import 'package:model/oidc/response/oidc_response.dart';
@@ -10,6 +11,7 @@ import 'package:tmail_ui_user/features/login/domain/model/base_url_oidc_response
 import 'package:tmail_ui_user/features/login/data/network/interceptors/authorization_interceptors.dart';
 import 'package:tmail_ui_user/features/login/data/network/oidc_error.dart';
 import 'package:tmail_ui_user/features/login/data/network/oidc_http_client.dart';
+import 'package:tmail_ui_user/features/login/domain/exceptions/login_exception.dart';
 
 import 'oidc_http_client_test.mocks.dart';
 
@@ -152,6 +154,65 @@ void main() {
         );
         expect(config.authority, href);
       }
+    });
+
+    test('OIDC discovery accepts metadata only for the configured issuer', () async {
+      final config = OIDCConfiguration(
+        authority: 'https://sso.example.org/realms/twake',
+        clientId: 'test-client',
+        scopes: ['openid'],
+      );
+      when(dioClient.getWithNewDio(config.discoveryUrl)).thenAnswer((_) async => {
+        'issuer': config.authority,
+        'authorization_endpoint': 'https://sso.example.org/authorize',
+        'token_endpoint': 'https://sso.example.org/token',
+      });
+
+      final metadata = await oidcHttpClient.discoverOIDC(config);
+      expect(metadata.authorizationEndpoint, 'https://sso.example.org/authorize');
+      expect(metadata.tokenEndpoint, 'https://sso.example.org/token');
+      verify(dioClient.getWithNewDio(config.discoveryUrl)).called(1);
+    });
+
+    test('OIDC discovery rejects issuer substitution, omission and incorrect types', () async {
+      final config = OIDCConfiguration(
+        authority: 'https://sso.example.org/realms/twake',
+        clientId: 'test-client',
+        scopes: ['openid'],
+      );
+      final untrustedMetadata = <Map<String, dynamic>>[
+        {
+          'issuer': 'https://attacker.example.org',
+          'authorization_endpoint': 'https://attacker.example.org/authorize',
+          'token_endpoint': 'https://attacker.example.org/token',
+        },
+        {'authorization_endpoint': 'https://attacker.example.org/authorize'},
+        {'issuer': 123},
+        {'issuer': 'https://sso.example.org/realms/twake/'},
+      ];
+      for (final response in untrustedMetadata) {
+        when(dioClient.getWithNewDio(config.discoveryUrl))
+            .thenAnswer((_) async => response);
+        await expectLater(
+          oidcHttpClient.discoverOIDC(config),
+          throwsA(isA<InvalidOIDCResponseException>()),
+          reason: 'OIDC discovery must bind metadata to the exact selected issuer',
+        );
+      }
+    });
+
+    test('OIDC discovery verifies issuer when metadata is JSON text', () async {
+      final config = OIDCConfiguration(
+        authority: 'https://sso.example.org/realms/twake',
+        clientId: 'test-client',
+        scopes: ['openid'],
+      );
+      when(dioClient.getWithNewDio(config.discoveryUrl))
+          .thenAnswer((_) async => '{"issuer":"https://different.example.org"}');
+      await expectLater(
+        oidcHttpClient.discoverOIDC(config),
+        throwsA(isA<InvalidOIDCResponseException>()),
+      );
     });
   });
 }
