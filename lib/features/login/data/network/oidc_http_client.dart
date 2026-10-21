@@ -17,6 +17,7 @@ import 'package:tmail_ui_user/features/login/data/network/config/oidc_constant.d
 import 'package:tmail_ui_user/features/login/data/network/endpoint.dart';
 import 'package:tmail_ui_user/features/login/data/network/interceptors/authorization_interceptors.dart';
 import 'package:tmail_ui_user/features/login/data/network/oidc_error.dart';
+import 'package:tmail_ui_user/features/login/domain/model/base_url_oidc_response.dart';
 import 'package:tmail_ui_user/features/login/domain/exceptions/login_exception.dart';
 import 'package:tmail_ui_user/main/utils/app_config.dart';
 
@@ -68,10 +69,30 @@ class OIDCHttpClient {
   }
 
   Future<OIDCConfiguration> getOIDCConfiguration(OIDCResponse oidcResponse) async {
-    if (oidcResponse.links.isEmpty) {
+    // WebFinger can advertise multiple unrelated link relations. An attacker-
+    // controlled first link is not an OIDC issuer; accept only the issuer rel.
+    // Base-URL discovery is a separate guessed flow with a synthetic link.
+    final issuerLinks = oidcResponse is BaseUrlOidcResponse
+        ? oidcResponse.links
+        : oidcResponse.links.where(
+            (link) => link.rel.toString() == OIDCRequest.relUrl,
+          );
+    if (issuerLinks.isEmpty) {
       throw CanNotFoundOIDCAuthority();
     }
-    final authority = oidcResponse.links[0].href.toString();
+    final issuer = issuerLinks.first.href;
+    final isLocalHttp = issuer.scheme == 'http' &&
+        {'localhost', '127.0.0.1', '::1'}.contains(issuer.host);
+    // OIDC issuer discovery and token exchanges must not use plaintext on
+    // public hosts. Query/fragment/userinfo are not issuer identifiers.
+    if ((!issuer.hasAuthority || issuer.host.isEmpty) ||
+        (issuer.scheme != 'https' && !isLocalHttp) ||
+        issuer.userInfo.isNotEmpty ||
+        issuer.hasQuery ||
+        issuer.hasFragment) {
+      throw CanNotFoundOIDCAuthority();
+    }
+    final authority = issuer.toString();
     final isTWP = authority == AppConfig.saasRegistrationUrl;
     log('OIDCHttpClient::getOIDCConfiguration(): authority selected');
     return OIDCConfiguration(
