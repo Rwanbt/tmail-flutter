@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:core/data/network/dio_client.dart';
 import 'package:core/data/network/download/download_manager.dart';
+import 'package:core/data/network/download/downloaded_response.dart';
 import 'package:core/domain/exceptions/download_file_exception.dart';
 import 'package:core/presentation/state/failure.dart';
 import 'package:core/presentation/state/success.dart';
@@ -178,6 +179,44 @@ void main() {
       );
 
       expect(bytes, [1, 2]);
+    });
+
+    test('attachment export forwards JMAP size to the disk download', () async {
+      final attachment = Attachment(
+        blobId: Id('blob'),
+        name: 'document.pdf',
+        size: UnsignedInt(3),
+      );
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      when(downloadManager.downloadFile(
+        any,
+        any,
+        any,
+        any,
+        cancelToken: anyNamed('cancelToken'),
+        expectedSize: anyNamed('expectedSize'),
+      )).thenAnswer((_) async => DownloadedResponse('temporary-file'));
+
+      await emailApi.exportAttachment(
+        attachment,
+        accountId,
+        downloadTemplate,
+        AccountRequest.withBasic(
+          userName: UserName('alice@example.invalid'),
+          password: Password('synthetic-password'),
+        ),
+        CancelToken(),
+      );
+
+      verify(downloadManager.downloadFile(
+        attachment.getDownloadUrl(downloadTemplate, accountId),
+        any,
+        attachment.generateFileName(),
+        any,
+        cancelToken: anyNamed('cancelToken'),
+        expectedSize: 3,
+      )).called(1);
     });
 
     group('markAsRead::test', () {
