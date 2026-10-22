@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
@@ -190,12 +191,12 @@ void main() {
       final accountId = AccountId(Id('account'));
       const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
       when(downloadManager.downloadFile(
-        any,
-        any,
-        any,
-        any,
+        any<String>(),
+        any<Future<Directory>>(),
+        any<String>(),
+        any<String>(),
         cancelToken: anyNamed('cancelToken'),
-        expectedSize: anyNamed('expectedSize'),
+        expectedSize: anyNamed<int>('expectedSize'),
       )).thenAnswer((_) async => DownloadedResponse('temporary-file'));
 
       await emailApi.exportAttachment(
@@ -211,9 +212,9 @@ void main() {
 
       verify(downloadManager.downloadFile(
         attachment.getDownloadUrl(downloadTemplate, accountId),
-        any,
+        any<Future<Directory>>(),
         attachment.generateFileName(),
-        any,
+        any<String>(),
         cancelToken: anyNamed('cancelToken'),
         expectedSize: 3,
       )).called(1);
