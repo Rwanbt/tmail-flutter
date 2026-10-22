@@ -80,6 +80,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@v5
         with:
           push: true
@@ -90,3 +91,15 @@ jobs:
             type=gha
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # An SBOM and the build provenance travel with the published image,
+          # so the artifact can be traced back to this workflow and its source.
+          sbom: true
+          provenance: mode=max
+
+      - name: Publish the digest of the released image
+        run: |
+          echo "### Released image digest" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
