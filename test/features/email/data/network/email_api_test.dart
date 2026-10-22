@@ -150,6 +150,36 @@ void main() {
       );
     });
 
+    test('web attachment download accepts bytes matching JMAP size', () async {
+      final attachment = Attachment(
+        blobId: Id('blob'),
+        name: 'document.pdf',
+        size: UnsignedInt(2),
+      );
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
+      when(dioClient.get(
+        attachment.getDownloadUrl(downloadTemplate, accountId),
+        options: anyNamed('options'),
+        cancelToken: anyNamed('cancelToken'),
+        onReceiveProgress: anyNamed('onReceiveProgress'),
+      )).thenAnswer((_) async => Uint8List.fromList([1, 2]));
+
+      final bytes = await emailApi.downloadAttachmentForWeb(
+        DownloadTaskId('attachment-task'),
+        attachment,
+        accountId,
+        downloadTemplate,
+        AccountRequest.withBasic(
+          userName: UserName('alice@example.invalid'),
+          password: Password('synthetic-password'),
+        ),
+      );
+
+      expect(bytes, [1, 2]);
+    });
+
     group('markAsRead::test', () {
       test(
         'SHOULD calls execute the correct number of times\n'
