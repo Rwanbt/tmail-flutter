@@ -340,12 +340,20 @@ class EmailAPI
       ? accountRequest.bearerToken
       : accountRequest.basicAuth;
 
+    // The size the JMAP server announced for this blob: a transfer that ends
+    // earlier leaves a truncated file, which must never be reported as a
+    // complete attachment. A size that is not a whole number of bytes cannot
+    // be compared with a byte count, so it is ignored instead of failing
+    // every download.
+    final announcedSize = attachment.size?.value;
+
     return _downloadManager.downloadFile(
       attachment.getDownloadUrl(baseDownloadUrl, accountId),
       getTemporaryDirectory(),
       attachment.generateFileName(),
       authentication,
-      cancelToken: cancelToken);
+      cancelToken: cancelToken,
+      expectedSize: announcedSize is int ? announcedSize : null);
   }
 
   Future<Uint8List> downloadAttachmentForWeb(
