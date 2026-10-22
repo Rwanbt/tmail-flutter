@@ -52,6 +52,7 @@ void main() {
 
   group('SidebarMailboxItem', () {
     _testMapsMailboxDataToRow();
+    _testMailboxRowAccessibilityGuidelines();
     _testInsetsNestedMailboxBackgroundAndReservesExpandControl();
     _testMapsMailboxRolesToTheNewFolderIcons();
     _testBundlesEveryMappedFolderIcon();
@@ -78,6 +79,35 @@ void main() {
     _testHidesMenuForProtectedReadOnlyLabel();
     _testKeepsMaterialTapFeedbackForMobileLabels();
     _testForwardsLabelLongPressOnMobile();
+  });
+}
+
+void _testMailboxRowAccessibilityGuidelines() {
+  testWidgets('meets name, contrast and Android target-size guidelines',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
+
+    final wasTestingForWeb = PlatformInfo.isTestingForWeb;
+    PlatformInfo.isTestingForWeb = true;
+    addTearDown(() => PlatformInfo.isTestingForWeb = wasTestingForWeb);
+
+    await _pump(
+      tester,
+      SidebarMailboxItem(
+        mailboxNode: _mailboxNode(
+          id: 'trash',
+          name: 'Trash',
+          role: PresentationMailbox.roleTrash,
+        ),
+        imagePaths: _imagePaths,
+        isWebDesktop: true,
+      ),
+    );
+
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(textContrastGuideline));
   });
 }
 
