@@ -2,6 +2,11 @@
 # CI integration test script.
 # Runs Patrol tests on Firebase Test Lab via bore tunnels.
 #
+# This is the Firebase Test Lab flow, used by the Jenkins pipeline (it owns the
+# Google Cloud credentials and the tunnel endpoint). The GitHub Actions job
+# runs the same scenarios on the Android emulator it boots, without any remote
+# tunnel: scripts/patrol-mobile-integration-test-with-docker.sh.
+#
 # Required environment variables:
 #   GOOGLE_APPLICATION_CREDENTIALS   Path to GCP service account JSON key
 #   FIREBASE_PROJECT_ID              GCP project ID
