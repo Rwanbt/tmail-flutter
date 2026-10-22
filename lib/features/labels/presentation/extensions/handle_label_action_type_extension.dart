@@ -80,7 +80,7 @@ extension HandleLabelActionTypeExtension on LabelController {
       ...labels.where((label) => label.id != newLabel.id),
       newLabel,
     ]..sortByAlphabetically();
-    labels.assignAll(updated);
+    labels.value = updated;
   }
 
   Future<void> _openDeleteLabelModal({
