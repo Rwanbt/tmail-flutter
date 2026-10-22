@@ -1,6 +1,9 @@
 ARG FLUTTER_VERSION=3.38.9
 
-FROM --platform=amd64 ghcr.io/instrumentisto/flutter:${FLUTTER_VERSION} AS build-env
+# The base images are pinned by digest: the tag alone lets the registry serve a
+# different image on the next build, which would make the published artifact
+# unreproducible. Update the digest deliberately, with the tag it belongs to.
+FROM --platform=amd64 ghcr.io/instrumentisto/flutter:${FLUTTER_VERSION}@sha256:7d227ac458bbb5aca38ada779dc0bf983ad24deae8d2ef3ebf5b779915d1547d AS build-env
 
 ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
@@ -26,7 +29,7 @@ RUN ./scripts/prebuild.sh && \
     --dart-define=SENTRY_DIST=$GITHUB_SHA && \
     SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-} ./scripts/run-sentry.sh
 
-FROM nginx:alpine
+FROM nginx:alpine@sha256:060849a174666c53439dc7cecbf8f67e225c7cbfb1a44ca97915d9a172a81e6d
 RUN apk add gzip
 COPY --from=build-env /app/server/nginx.conf /etc/nginx
 COPY --from=build-env /app/build/web /usr/share/nginx/html
