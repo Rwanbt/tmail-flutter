@@ -71,11 +71,17 @@ extension HandleLabelActionTypeExtension on LabelController {
   }
 
   void syncListLabels(Label newLabel) {
-    // Emit once: a listener must never see the list without the edited label
-    labels.value = [
+    // Emit once: a listener must never see the list without the edited label.
+    // Rebuild the list in place (and force a refresh notification) so that
+    // every subscriber — including the sidebar rendered inside a closed
+    // drawer on mobile, which does not always repaint on its own — picks up
+    // the renamed label.
+    final updated = [
       ...labels.where((label) => label.id != newLabel.id),
       newLabel,
     ]..sortByAlphabetically();
+    labels.assignAll(updated);
+    labels.refresh();
   }
 
   Future<void> _openDeleteLabelModal({

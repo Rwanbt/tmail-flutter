@@ -420,7 +420,7 @@ abstract class BaseMailboxView extends GetWidget<MailboxController>
 
     return labelController.labels
         .map((label) => SidebarLabelItem(
-              key: ValueKey<Id?>(label.id),
+              key: ValueKey<String>('${label.id}-${label.safeDisplayName}'),
               label: label,
               imagePaths: controller.imagePaths,
               isSelected: labelIdSelected != null &&
