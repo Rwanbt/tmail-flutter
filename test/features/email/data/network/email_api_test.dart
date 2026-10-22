@@ -12,6 +12,7 @@ import 'package:core/presentation/state/success.dart';
 import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jmap_dart_client/http/http_client.dart';
 import 'package:jmap_dart_client/jmap/account_id.dart';
@@ -45,6 +46,24 @@ import '../../../../fixtures/account_fixtures.dart';
 import '../../../../fixtures/capturing_log_handler.dart';
 import '../../../../fixtures/session_fixtures.dart';
 import 'email_api_test.mocks.dart';
+
+class _ExpectedSizeRecordingDownloadManager extends MockDownloadManager {
+  int? observedExpectedSize;
+
+  @override
+  Future<DownloadedResponse> downloadFile(
+    String downloadUrl,
+    Future<Directory> directoryToSave,
+    String filename,
+    String basicAuth, {
+    CancelToken? cancelToken,
+    int? expectedSize,
+  }) async {
+    observedExpectedSize = expectedSize;
+    await directoryToSave;
+    return DownloadedResponse('temporary-file');
+  }
+}
 
 @GenerateNiceMocks([
   MockSpec<HttpClient>(),
@@ -190,16 +209,26 @@ void main() {
       );
       final accountId = AccountId(Id('account'));
       const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
-      when(downloadManager.downloadFile(
-        any<String>(),
-        any<Future<Directory>>(),
-        any<String>(),
-        any<String>(),
-        cancelToken: anyNamed('cancelToken'),
-        expectedSize: anyNamed<int>('expectedSize'),
-      )).thenAnswer((_) async => DownloadedResponse('temporary-file'));
+      const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        pathProviderChannel,
+        (_) async => Directory.systemTemp.path,
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(pathProviderChannel, null),
+      );
+      final recordingDownloadManager =
+          _ExpectedSizeRecordingDownloadManager();
+      final api = EmailAPI(
+        httpClient,
+        recordingDownloadManager,
+        dioClient,
+        uuid,
+      );
 
-      await emailApi.exportAttachment(
+      await api.exportAttachment(
         attachment,
         accountId,
         downloadTemplate,
@@ -210,14 +239,7 @@ void main() {
         CancelToken(),
       );
 
-      verify(downloadManager.downloadFile(
-        attachment.getDownloadUrl(downloadTemplate, accountId),
-        any<Future<Directory>>(),
-        attachment.generateFileName(),
-        any<String>(),
-        cancelToken: anyNamed('cancelToken'),
-        expectedSize: 3,
-      )).called(1);
+      expect(recordingDownloadManager.observedExpectedSize, 3);
     });
 
     group('markAsRead::test', () {
