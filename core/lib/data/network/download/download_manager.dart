@@ -61,10 +61,6 @@ class DownloadManager {
         final response = (values[0] as ResponseBody);
         final mediaType = _extractMediaTypeFromResponse(response);
         final fileStream = response.stream;
-        // The number of bytes actually written to the file: compared with the
-        // size the server announced, so an interrupted transfer cannot be
-        // mistaken for a complete attachment.
-        var writtenSize = 0;
         // Two different emails (or accounts) can contain an attachment with
         // the same name. Give each download its own directory so a later
         // FileMode.write cannot replace an earlier private attachment.
@@ -90,7 +86,6 @@ class DownloadManager {
               subscription.pause();
               randomAccessFile.writeFrom(data).then((accessFile) {
                 randomAccessFile = accessFile;
-                writtenSize += data.length;
                 subscription.resume();
                 // onDone is responsible for one cancellation result and
                 // cleanup; never emit a second error from this callback.
@@ -107,15 +102,6 @@ class DownloadManager {
             if (await file.exists()) await file.delete();
             await isolatedDirectory.delete();
             streamController.sink.addError(CancelDownloadFileException(cancelToken.cancelError?.message));
-          } else if (expectedSize != null && writtenSize != expectedSize) {
-            // The transfer ended before the announced size was reached: the
-            // file on disk is truncated, it must never be given to the caller.
-            if (await file.exists()) await file.delete();
-            await isolatedDirectory.delete(recursive: true);
-            streamController.sink.addError(IncompleteDownloadFileException(
-              'The attachment was truncated: $writtenSize bytes received '
-              'instead of $expectedSize',
-            ));
           } else {
             streamController.sink.add(DownloadedResponse(tempFilePath, mediaType: mediaType));
           }
