@@ -18,6 +18,17 @@ class CancelDownloadFileException extends DownloadFileException {
   String get exceptionName => 'CancelDownloadFileException';
 }
 
+/// The transfer ended before the whole attachment was received.
+///
+/// A partial file is never handed to the caller: it would be saved, shared or
+/// printed as if it were the complete attachment.
+class IncompleteDownloadFileException extends DownloadFileException {
+  const IncompleteDownloadFileException(super.message);
+
+  @override
+  String get exceptionName => 'IncompleteDownloadFileException';
+}
+
 class DeviceNotSupportedException extends DownloadFileException {
   const DeviceNotSupportedException()
       : super('This device is not supported, please try on Android or iOS');

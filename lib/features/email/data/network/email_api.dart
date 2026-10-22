@@ -345,7 +345,11 @@ class EmailAPI
       getTemporaryDirectory(),
       attachment.generateFileName(),
       authentication,
-      cancelToken: cancelToken);
+      cancelToken: cancelToken,
+      // The size the JMAP server announced for this blob: a transfer that
+      // ends earlier leaves a truncated file, which must never be reported as
+      // a complete attachment.
+      expectedSize: attachment.size?.value);
   }
 
   Future<Uint8List> downloadAttachmentForWeb(

@@ -46,7 +46,8 @@ class DownloadManager {
       Future<Directory> directoryToSave,
       String filename,
       String basicAuth,
-      {CancelToken? cancelToken}
+      {CancelToken? cancelToken,
+      int? expectedSize}
   ) async {
     // Check before starting the HTTP request or opening any output file.
     final safeFilename = validateDownloadFilename(filename);
