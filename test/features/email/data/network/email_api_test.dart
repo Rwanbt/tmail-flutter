@@ -52,8 +52,8 @@ class _ExpectedSizeRecordingDownloadManager extends MockDownloadManager {
 
   @override
   Future<DownloadedResponse> downloadFile(
-    String downloadUrl,
-    Future<Directory> directoryToSave,
+    String? downloadUrl,
+    Future<Directory>? directoryToSave,
     String? filename,
     String? basicAuth, {
     CancelToken? cancelToken,
