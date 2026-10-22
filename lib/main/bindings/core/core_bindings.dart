@@ -70,6 +70,15 @@ class CoreBindings extends Bindings {
 
   void _bindingReceivingSharingStream() {
     Get.put(EmailReceiveManager());
+    if (PlatformInfo.isMobile) {
+      // The plugin's event channel does not replay the events emitted before
+      // a listener attaches: a share received while the application is still
+      // starting (the login screen, before the home route exists) would be
+      // lost. Listening from the application start lets EmailReceiveManager
+      // buffer it and replay it to the dashboard controller.
+      Get.find<EmailReceiveManager>()
+          .registerReceivingFileSharingStreamWhileAppClosed();
+    }
   }
 
   void _bindingUtils() {
