@@ -46,9 +46,14 @@ class ImageTransformer extends DomTransformer {
             imageElement.attributes['id'] = src;
           }
         } else if (src.startsWith('https://') || src.startsWith('http://')) {
-          if (!imageElement.attributes.containsKey('loading')) {
-            imageElement.attributes['loading'] = 'lazy';
-          }
+          // Remote images are never auto-loaded: they are a tracking vector
+          // (open-tracking pixels, IP/timestamp collection) and may also leak
+          // the reader's address to third parties. Block the request by
+          // removing the source and mark the element so the UI can offer an
+          // explicit "load remote images" action instead.
+          imageElement.attributes.remove('src');
+          imageElement.attributes['data-blocked'] = 'remote-image';
+          imageElement.attributes.remove('loading');
         }
       }));
     } catch (e) {

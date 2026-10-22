@@ -1,10 +1,9 @@
-import 'package:core/presentation/extensions/color_extension.dart';
+﻿import 'package:core/presentation/extensions/color_extension.dart';
 import 'package:core/utils/platform_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:jmap_dart_client/jmap/core/id.dart';
 import 'package:linagora_design_flutter/linagora_design_flutter.dart';
 import 'package:model/extensions/presentation_mailbox_extension.dart';
 import 'package:model/extensions/session_extension.dart';
@@ -12,6 +11,7 @@ import 'package:tmail_ui_user/features/base/mixin/app_loader_mixin.dart';
 import 'package:tmail_ui_user/features/base/model/ui_keys.dart';
 import 'package:tmail_ui_user/features/home/domain/extensions/session_extensions.dart';
 import 'package:tmail_ui_user/features/labels/presentation/extensions/handle_label_action_type_extension.dart';
+import 'package:labels/extensions/label_extension.dart';
 import 'package:tmail_ui_user/features/labels/presentation/models/label_action_type.dart';
 import 'package:tmail_ui_user/features/mailbox/presentation/extensions/expand_mode_extension.dart';
 import 'package:tmail_ui_user/features/mailbox/presentation/extensions/handle_label_action_type_extension.dart';
@@ -420,7 +420,7 @@ abstract class BaseMailboxView extends GetWidget<MailboxController>
 
     return labelController.labels
         .map((label) => SidebarLabelItem(
-              key: ValueKey<Id?>(label.id),
+              key: ValueKey<String>('${label.id}-${label.safeDisplayName}'),
               label: label,
               imagePaths: controller.imagePaths,
               isSelected: labelIdSelected != null &&

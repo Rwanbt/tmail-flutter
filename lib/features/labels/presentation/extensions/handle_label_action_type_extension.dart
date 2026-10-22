@@ -1,4 +1,4 @@
-import 'package:core/utils/app_logger.dart';
+﻿import 'package:core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:jmap_dart_client/jmap/account_id.dart';
 import 'package:labels/extensions/label_extension.dart';
@@ -71,11 +71,16 @@ extension HandleLabelActionTypeExtension on LabelController {
   }
 
   void syncListLabels(Label newLabel) {
-    // Emit once: a listener must never see the list without the edited label
-    labels.value = [
+    // Emit once: a listener must never see the list without the edited label.
+    // Rebuild the list in place (and force a refresh notification) so that
+    // every subscriber â€” including the sidebar rendered inside a closed
+    // drawer on mobile, which does not always repaint on its own â€” picks up
+    // the renamed label.
+    final updated = [
       ...labels.where((label) => label.id != newLabel.id),
       newLabel,
     ]..sortByAlphabetically();
+    labels.value = updated;
   }
 
   Future<void> _openDeleteLabelModal({
