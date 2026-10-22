@@ -348,6 +348,12 @@ class MailboxDashBoardController extends ReloadableController
   jmap.State? _currentEmailState;
   ScrollController? listSearchFilterScrollController;
   StreamSubscription? _pendingSharedFileInfoSubscription;
+  /// A share that arrived before the session was loaded.
+  ///
+  /// The composer needs the identities of the account, and its route can only
+  /// be pushed once the dashboard is displayed: a share handled before that
+  /// is dropped. It is kept here and handled as soon as the session arrives.
+  List<SharedMediaFile>? _sharedFileInfoWaitingForSession;
   StreamSubscription? _currentEmailIdInNotificationIOSStreamSubscription;
   bool _isFirstSessionLoad = false;
   DeepLinksManager? _deepLinksManager;
@@ -680,6 +686,16 @@ class MailboxDashBoardController extends ReloadableController
     log('MailboxDashBoardController::handleReceivingFileSharing: LIST_LENGTH = ${listSharedMediaFile.length}');
     if (listSharedMediaFile.isEmpty) return;
 
+    if (sessionCurrent == null) {
+      // The session is not loaded yet: the composer cannot be opened (it needs
+      // the identities of the account) and its route would be pushed over the
+      // login screen. Keep the share and handle it when the session arrives,
+      // instead of dropping it.
+      log('MailboxDashBoardController::handleReceivingFileSharing: session not ready, share deferred');
+      _sharedFileInfoWaitingForSession = listSharedMediaFile;
+      return;
+    }
+
     // Consume the share as soon as it is taken for processing:
     // pendingSharedFileInfo is a BehaviorSubject that replays its latest
     // value, so a handled share left in place would re-open the composer
@@ -933,6 +949,18 @@ class MailboxDashBoardController extends ReloadableController
     } else {
       dispatchRoute(DashboardRoutes.thread);
     }
+
+    _handleSharedFileInfoWaitingForSession();
+  }
+
+  /// Opens the composer for a share that arrived before the session was
+  /// loaded, now that the dashboard is displayed and the account known.
+  void _handleSharedFileInfoWaitingForSession() {
+    final sharedFileInfo = _sharedFileInfoWaitingForSession;
+    if (sharedFileInfo == null || sharedFileInfo.isEmpty) return;
+    _sharedFileInfoWaitingForSession = null;
+    log('MailboxDashBoardController::_handleSharedFileInfoWaitingForSession: handling the share that arrived before the session');
+    handleReceivingFileSharing(sharedFileInfo);
   }
 
   void _setUpComponentsFromSession(Session session) {

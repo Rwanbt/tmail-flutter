@@ -96,6 +96,12 @@ class MailboxAssertionRobot extends CoreRobot implements AbstractMailboxAssertio
   @override
   Future<void> expectLabelSelected(PatrolFinder label) async {
     final selectedLabel = label.which<SidebarLabelItem>((w) => w.isSelected);
+    // A rename is applied asynchronously: the sidebar is refreshed when the
+    // JMAP state update arrives, which can take longer than the scroll
+    // timeout on a mobile device. The renamed label has to be in the sidebar
+    // before its selection can be asserted — the assertion itself is
+    // unchanged.
+    await waitForCondition(() => label.exists);
     await $(selectedLabel).scrollTo(scrollDirection: AxisDirection.down);
     await waitForCondition(() => selectedLabel.exists);
   }
