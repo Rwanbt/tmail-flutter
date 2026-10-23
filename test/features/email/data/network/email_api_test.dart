@@ -93,9 +93,7 @@ void main() {
       );
     });
 
-    test(
-        'attachment HTTP progress ignores closed listeners and hides signed URL',
-        () async {
+    test('attachment HTTP progress ignores closed listeners and hides signed URL', () async {
       final captured = CapturingLogHandler();
       final registry = AppLoggerRegistry.instance;
       registry.resetForTesting();
@@ -114,8 +112,8 @@ void main() {
           cancelToken: anyNamed('cancelToken'),
           onReceiveProgress: anyNamed('onReceiveProgress'),
         )).thenAnswer((invocation) async {
-          final progress =
-              invocation.namedArguments[#onReceiveProgress] as ProgressCallback;
+          final progress = invocation.namedArguments[#onReceiveProgress]
+              as ProgressCallback;
           progress(1, 2); // Real EmailAPI callback after UI has closed.
           return Uint8List.fromList([1, 2]);
         });
@@ -133,8 +131,7 @@ void main() {
           cancelToken: CancelToken(),
         );
         expect(bytes, [1, 2]);
-        final messages =
-            captured.records.map((record) => record.rawMessage).join(' ');
+        final messages = captured.records.map((record) => record.rawMessage).join(' ');
         expect(messages, contains('requesting attachment'));
         expect(messages, isNot(contains('private-token')));
         expect(messages, isNot(contains('private-password')));
@@ -143,16 +140,14 @@ void main() {
       }
     });
 
-    test('web attachment download rejects bytes that differ from JMAP size',
-        () async {
+    test('web attachment download rejects bytes that differ from JMAP size', () async {
       final attachment = Attachment(
         blobId: Id('blob'),
         name: 'document.pdf',
         size: UnsignedInt(3),
       );
       final accountId = AccountId(Id('account'));
-      const downloadTemplate =
-          'https://mail.invalid/download/{accountId}/{blobId}';
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
       when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
       when(dioClient.get(
         attachment.getDownloadUrl(downloadTemplate, accountId),
@@ -183,8 +178,7 @@ void main() {
         size: UnsignedInt(2),
       );
       final accountId = AccountId(Id('account'));
-      const downloadTemplate =
-          'https://mail.invalid/download/{accountId}/{blobId}';
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
       when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
       when(dioClient.get(
         attachment.getDownloadUrl(downloadTemplate, accountId),
@@ -215,10 +209,8 @@ void main() {
         size: UnsignedInt(3),
       );
       final accountId = AccountId(Id('account'));
-      const downloadTemplate =
-          'https://mail.invalid/download/{accountId}/{blobId}';
-      const pathProviderChannel =
-          MethodChannel('plugins.flutter.io/path_provider');
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       messenger.setMockMethodCallHandler(
@@ -228,7 +220,8 @@ void main() {
       addTearDown(
         () => messenger.setMockMethodCallHandler(pathProviderChannel, null),
       );
-      final recordingDownloadManager = _ExpectedSizeRecordingDownloadManager();
+      final recordingDownloadManager =
+          _ExpectedSizeRecordingDownloadManager();
       final api = EmailAPI(
         httpClient,
         recordingDownloadManager,
@@ -252,57 +245,55 @@ void main() {
 
     group('markAsRead::test', () {
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$seen": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$seen": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -328,57 +319,55 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 200;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$seen": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$seen": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -404,57 +393,55 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 20;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$seen": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$seen": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -480,58 +467,56 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 30;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$seen": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$seen": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -559,57 +544,55 @@ void main() {
 
     group('markAsStar::test', () {
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$flagged": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$flagged": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -635,57 +618,55 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 200;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$flagged": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$flagged": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -711,57 +692,55 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 20;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$flagged": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$flagged": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -787,58 +766,56 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 30;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ],
-                [
-                  "Email/get",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
-                    "list": List.generate(
-                        maxBatches,
-                        (index) => {
-                              "id": "email_$index",
-                              "keywords": {"\$flagged": true}
-                            }),
-                    "notFound": []
-                  },
-                  "c1"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ],
+            [
+              "Email/get",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "state": "b965db40-c11c-11ef-9cfb-ef2eae0e64b1",
+                "list": List.generate(maxBatches, (index) => {
+                  "id": "email_$index",
+                  "keywords": {
+                    "\$flagged": true
+                  }
+                }),
+                "notFound": []
+              },
+              "c1"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -866,39 +843,37 @@ void main() {
 
     group('deleteMultipleEmailsPermanently::test', () {
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "destroyed":
-                        List.generate(maxBatches, (index) => "email_$index")
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "destroyed": List.generate(maxBatches, (index) => "email_$index")
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -923,39 +898,37 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 200;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "destroyed":
-                        List.generate(maxBatches, (index) => "email_$index")
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "destroyed": List.generate(maxBatches, (index) => "email_$index")
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -980,39 +953,37 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 20;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "destroyed":
-                        List.generate(maxBatches, (index) => "email_$index")
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "destroyed": List.generate(maxBatches, (index) => "email_$index")
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -1037,40 +1008,38 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 30;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "destroyed":
-                        List.generate(maxBatches, (index) => "email_$index")
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "destroyed": List.generate(maxBatches, (index) => "email_$index")
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -1097,42 +1066,40 @@ void main() {
 
     group('moveToMailbox::test', () {
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -1164,46 +1131,44 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is greater than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 200;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
-          (index) => EmailId(Id('email_$index')),
+              (index) => EmailId(Id('email_$index')),
         );
 
         // Act
@@ -1231,42 +1196,40 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN maxObjectsInSet is less than defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 20;
         const totalEmails = 100;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -1298,43 +1261,41 @@ void main() {
       });
 
       test(
-          'SHOULD calls execute the correct number of times\n'
-          'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
-          'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
-          'AND defaultMaxObjectsInSet is 50', () async {
+        'SHOULD calls execute the correct number of times\n'
+        'WHEN totalEmails is less than defaultMaxObjectsInSet\n'
+        'WHEN maxObjectsInSet equal defaultMaxObjectsInSet\n'
+        'AND defaultMaxObjectsInSet is 50',
+      () async {
         // Arrange
         const defaultMaxObjectsInSet = 50;
         const maxObjectsInSet = 50;
         const totalEmails = 30;
-        final maxBatches =
-            [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
+        final maxBatches = [maxObjectsInSet, defaultMaxObjectsInSet, totalEmails].min;
         final countIterations = (totalEmails / maxBatches).ceil();
-        final aliceSession =
-            SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
+        final aliceSession = SessionFixtures.getAliceSessionWithMaxObjectsInSet(maxObjectsInSet);
 
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  {
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
-                    "updated": {
-                      for (var item in List.generate(
-                          maxBatches, (index) => {"email_$index": null}))
-                        item.keys.first: item.values.first
-                    }
-                  },
-                  "c0"
-                ]
-              ]
-            });
+          "sessionState": "2c9f1b12-b35a-43e6-9af2-0106fb53a943",
+          "methodResponses": [
+            [
+              "Email/set",
+              {
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "newState": "4cb1e760-c11b-11ef-9cfb-ef2eae0e64b1",
+                "updated": {
+                  for (var item in List.generate(maxBatches, (index) => {"email_$index": null}))
+                    item.keys.first: item.values.first
+                }
+              },
+              "c0"
+            ]
+          ]
+        });
 
         final emailIds = List.generate(
           totalEmails,
@@ -1376,25 +1337,26 @@ void main() {
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              'sessionState': 'some-state',
-              'methodResponses': [
-                [
-                  'Email/get',
-                  {
-                    'accountId': AccountFixtures.aliceAccountId.asString,
-                    'state': 'email-state',
-                    'list': emailList,
-                    'notFound': [],
-                  },
-                  'c0',
-                ]
-              ]
-            });
+          'sessionState': 'some-state',
+          'methodResponses': [
+            [
+              'Email/get',
+              {
+                'accountId': AccountFixtures.aliceAccountId.asString,
+                'state': 'email-state',
+                'list': emailList,
+                'notFound': [],
+              },
+              'c0',
+            ]
+          ]
+        });
       }
 
       test(
-          'SHOULD return first email in the list '
-          'WHEN server response contains the requested email', () async {
+        'SHOULD return first email in the list '
+        'WHEN server response contains the requested email',
+      () async {
         stubHttpResponse([
           {'id': 'email-id-123'},
         ]);
@@ -1410,8 +1372,9 @@ void main() {
       });
 
       test(
-          'SHOULD throw NotFoundEmailException '
-          'WHEN server response returns an empty list', () async {
+        'SHOULD throw NotFoundEmailException '
+        'WHEN server response returns an empty list',
+      () async {
         stubHttpResponse([]);
 
         await expectLater(
@@ -1437,49 +1400,49 @@ void main() {
       );
 
       test(
-          'SHOULD throw InvalidRecipientsException with the rejected addresses '
-          'WHEN EmailSubmission/set reports an invalidRecipients SetError\n'
-          'AND the addresses are read from the EmailSubmission/set response, not Email/set',
-          () async {
+        'SHOULD throw InvalidRecipientsException with the rejected addresses '
+        'WHEN EmailSubmission/set reports an invalidRecipients SetError\n'
+        'AND the addresses are read from the EmailSubmission/set response, not Email/set',
+      () async {
         when(uuid.v1()).thenReturn('draft-1');
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "state-1",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  <String, dynamic>{
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "state-1",
-                    "newState": "state-1",
-                    "created": <String, dynamic>{
-                      "draft-1": <String, dynamic>{"id": "email-1"},
-                    },
+          "sessionState": "state-1",
+          "methodResponses": [
+            [
+              "Email/set",
+              <String, dynamic>{
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "state-1",
+                "newState": "state-1",
+                "created": <String, dynamic>{
+                  "draft-1": <String, dynamic>{"id": "email-1"},
+                },
+              },
+              "c0"
+            ],
+            [
+              // The submission failure belongs to the EmailSubmission/set response.
+              "EmailSubmission/set",
+              <String, dynamic>{
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "state-1",
+                "newState": "state-1",
+                "notCreated": <String, dynamic>{
+                  "draft-1": <String, dynamic>{
+                    "type": "invalidRecipients",
+                    "description": "Invalid recipients",
+                    "invalidRecipients": ["rejected@linagora.com"],
                   },
-                  "c0"
-                ],
-                [
-                  // The submission failure belongs to the EmailSubmission/set response.
-                  "EmailSubmission/set",
-                  <String, dynamic>{
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "state-1",
-                    "newState": "state-1",
-                    "notCreated": <String, dynamic>{
-                      "draft-1": <String, dynamic>{
-                        "type": "invalidRecipients",
-                        "description": "Invalid recipients",
-                        "invalidRecipients": ["rejected@linagora.com"],
-                      },
-                    },
-                  },
-                  "c1"
-                ]
-              ]
-            });
+                },
+              },
+              "c1"
+            ]
+          ]
+        });
 
         await expectLater(
           emailApi.sendEmail(
@@ -1487,43 +1450,46 @@ void main() {
             AccountFixtures.aliceAccountId,
             emailRequest,
           ),
-          throwsA(isA<InvalidRecipientsException>().having(
-            (exception) => exception.invalidRecipients,
-            'invalidRecipients',
-            {'rejected@linagora.com'},
-          ).having(
-            (exception) => exception.createdEmailId,
-            'createdEmailId',
-            EmailId(Id('email-1')),
-          )),
+          throwsA(isA<InvalidRecipientsException>()
+              .having(
+                (exception) => exception.invalidRecipients,
+                'invalidRecipients',
+                {'rejected@linagora.com'},
+              )
+              .having(
+                (exception) => exception.createdEmailId,
+                'createdEmailId',
+                EmailId(Id('email-1')),
+              )),
         );
       });
 
       test(
-          'SHOULD throw SetMethodException, not InvalidRecipientsException\n'
-          'WHEN Email/set does not create the email', () async {
+        'SHOULD throw SetMethodException, not InvalidRecipientsException\n'
+        'WHEN Email/set does not create the email',
+      () async {
         when(uuid.v1()).thenReturn('draft-1');
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => {
-              "sessionState": "state-1",
-              "methodResponses": [
-                [
-                  "Email/set",
-                  <String, dynamic>{
-                    "accountId": AccountFixtures.aliceAccountId.asString,
-                    "oldState": "state-1",
-                    "newState": "state-1",
-                    "notCreated": <String, dynamic>{
-                      "draft-1": <String, dynamic>{"type": "overQuota"},
-                    },
-                  },
-                  "c0"
-                ],
-              ]
-            });
+          "sessionState": "state-1",
+          "methodResponses": [
+            [
+              "Email/set",
+              <String, dynamic>{
+                "accountId": AccountFixtures.aliceAccountId.asString,
+                "oldState": "state-1",
+                "newState": "state-1",
+                "notCreated": <String, dynamic>{
+                  "draft-1": <String, dynamic>{"type": "overQuota"},
+                },
+              },
+              "c0"
+            ],
+          ]
+        });
 
         await expectLater(
           emailApi.sendEmail(
@@ -1542,61 +1508,61 @@ void main() {
       // onSuccessUpdateEmail as an implicit Email/set sharing its call id.
       Map<String, dynamic> acceptedSubmissionResponse(
         Map<String, dynamic> implicitEmailSetResult,
-      ) =>
-          {
-            "sessionState": "state-1",
-            "methodResponses": [
-              [
-                "Email/set",
-                <String, dynamic>{
-                  "accountId": AccountFixtures.aliceAccountId.asString,
-                  "oldState": "state-1",
-                  "newState": "state-2",
-                  "created": <String, dynamic>{
-                    "draft-1": <String, dynamic>{"id": "email-1"},
-                  },
+      ) => {
+        "sessionState": "state-1",
+        "methodResponses": [
+          [
+            "Email/set",
+            <String, dynamic>{
+              "accountId": AccountFixtures.aliceAccountId.asString,
+              "oldState": "state-1",
+              "newState": "state-2",
+              "created": <String, dynamic>{
+                "draft-1": <String, dynamic>{"id": "email-1"},
+              },
+            },
+            "c0"
+          ],
+          [
+            "EmailSubmission/set",
+            <String, dynamic>{
+              "accountId": AccountFixtures.aliceAccountId.asString,
+              "newState": "state-1",
+              "created": <String, dynamic>{
+                "draft-1": <String, dynamic>{
+                  "id": "submission-1",
+                  "sendAt": "2026-09-25T08:53:22Z",
                 },
-                "c0"
-              ],
-              [
-                "EmailSubmission/set",
-                <String, dynamic>{
-                  "accountId": AccountFixtures.aliceAccountId.asString,
-                  "newState": "state-1",
-                  "created": <String, dynamic>{
-                    "draft-1": <String, dynamic>{
-                      "id": "submission-1",
-                      "sendAt": "2026-09-25T08:53:22Z",
-                    },
-                  },
-                },
-                "c1"
-              ],
-              [
-                "Email/set",
-                <String, dynamic>{
-                  "accountId": AccountFixtures.aliceAccountId.asString,
-                  "oldState": "state-2",
-                  "newState": "state-3",
-                  ...implicitEmailSetResult,
-                },
-                "c1"
-              ],
-            ]
-          };
+              },
+            },
+            "c1"
+          ],
+          [
+            "Email/set",
+            <String, dynamic>{
+              "accountId": AccountFixtures.aliceAccountId.asString,
+              "oldState": "state-2",
+              "newState": "state-3",
+              ...implicitEmailSetResult,
+            },
+            "c1"
+          ],
+        ]
+      };
 
       test(
-          'SHOULD complete\n'
-          'WHEN EmailSubmission/set creates the submission\n'
-          'AND the implicit Email/set moves the email to Sent', () async {
+        'SHOULD complete\n'
+        'WHEN EmailSubmission/set creates the submission\n'
+        'AND the implicit Email/set moves the email to Sent',
+      () async {
         when(uuid.v1()).thenReturn('draft-1');
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => acceptedSubmissionResponse({
-              "updated": <String, dynamic>{"email-1": null},
-            }));
+          "updated": <String, dynamic>{"email-1": null},
+        }));
 
         await expectLater(
           emailApi.sendEmail(
@@ -1609,23 +1575,23 @@ void main() {
       });
 
       test(
-          'SHOULD complete, as the email is already sent\n'
-          'WHEN EmailSubmission/set creates the submission\n'
-          'AND the implicit Email/set fails to move the email to Sent',
-          () async {
+        'SHOULD complete, as the email is already sent\n'
+        'WHEN EmailSubmission/set creates the submission\n'
+        'AND the implicit Email/set fails to move the email to Sent',
+      () async {
         when(uuid.v1()).thenReturn('draft-1');
         when(httpClient.post(
           '',
           data: anyNamed('data'),
           cancelToken: anyNamed('cancelToken'),
         )).thenAnswer((_) async => acceptedSubmissionResponse({
-              "notUpdated": <String, dynamic>{
-                "email-1": <String, dynamic>{
-                  "type": "notFound",
-                  "description": "Mailbox not found",
-                },
-              },
-            }));
+          "notUpdated": <String, dynamic>{
+            "email-1": <String, dynamic>{
+              "type": "notFound",
+              "description": "Mailbox not found",
+            },
+          },
+        }));
 
         await expectLater(
           emailApi.sendEmail(
