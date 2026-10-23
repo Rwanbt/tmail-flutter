@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:core/core.dart';
+import 'package:core/domain/exceptions/download_file_exception.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:email_recovery/email_recovery/email_recovery_action.dart';
@@ -409,6 +410,14 @@ class EmailAPI
           );
         }
     );
+
+    final expectedSize = attachment.size?.value;
+    if (expectedSize is int && bytesDownloaded.length != expectedSize) {
+      throw IncompleteDownloadFileException(
+        'The attachment size did not match JMAP: ${bytesDownloaded.length} '
+        'bytes received instead of $expectedSize',
+      );
+    }
 
     return bytesDownloaded;
   }

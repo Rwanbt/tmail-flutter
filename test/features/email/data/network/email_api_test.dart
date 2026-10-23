@@ -1,18 +1,23 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:core/data/network/dio_client.dart';
 import 'package:core/data/network/download/download_manager.dart';
+import 'package:core/data/network/download/downloaded_response.dart';
+import 'package:core/domain/exceptions/download_file_exception.dart';
 import 'package:core/presentation/state/failure.dart';
 import 'package:core/presentation/state/success.dart';
 import 'package:core/utils/logging/app_logger_registry.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jmap_dart_client/http/http_client.dart';
 import 'package:jmap_dart_client/jmap/account_id.dart';
 import 'package:jmap_dart_client/jmap/core/id.dart';
+import 'package:jmap_dart_client/jmap/core/unsigned_int.dart';
 import 'package:jmap_dart_client/jmap/core/user_name.dart';
 import 'package:jmap_dart_client/jmap/core/properties/properties.dart';
 import 'package:jmap_dart_client/jmap/mail/email/email.dart';
@@ -41,6 +46,24 @@ import '../../../../fixtures/account_fixtures.dart';
 import '../../../../fixtures/capturing_log_handler.dart';
 import '../../../../fixtures/session_fixtures.dart';
 import 'email_api_test.mocks.dart';
+
+class _ExpectedSizeRecordingDownloadManager extends MockDownloadManager {
+  int? observedExpectedSize;
+
+  @override
+  Future<DownloadedResponse> downloadFile(
+    String? downloadUrl,
+    Future<Directory>? directoryToSave,
+    String? filename,
+    String? basicAuth, {
+    CancelToken? cancelToken,
+    int? expectedSize,
+  }) async {
+    observedExpectedSize = expectedSize;
+    await directoryToSave;
+    return DownloadedResponse('temporary-file');
+  }
+}
 
 @GenerateNiceMocks([
   MockSpec<HttpClient>(),
@@ -115,6 +138,109 @@ void main() {
       } finally {
         registry.resetForTesting();
       }
+    });
+
+    test('web attachment download rejects bytes that differ from JMAP size', () async {
+      final attachment = Attachment(
+        blobId: Id('blob'),
+        name: 'document.pdf',
+        size: UnsignedInt(3),
+      );
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
+      when(dioClient.get(
+        attachment.getDownloadUrl(downloadTemplate, accountId),
+        options: anyNamed('options'),
+        cancelToken: anyNamed('cancelToken'),
+        onReceiveProgress: anyNamed('onReceiveProgress'),
+      )).thenAnswer((_) async => Uint8List.fromList([1, 2]));
+
+      await expectLater(
+        emailApi.downloadAttachmentForWeb(
+          DownloadTaskId('attachment-task'),
+          attachment,
+          accountId,
+          downloadTemplate,
+          AccountRequest.withBasic(
+            userName: UserName('alice@example.invalid'),
+            password: Password('synthetic-password'),
+          ),
+        ),
+        throwsA(isA<IncompleteDownloadFileException>()),
+      );
+    });
+
+    test('web attachment download accepts bytes matching JMAP size', () async {
+      final attachment = Attachment(
+        blobId: Id('blob'),
+        name: 'document.pdf',
+        size: UnsignedInt(2),
+      );
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      when(dioClient.getHeaders()).thenReturn(<String, dynamic>{});
+      when(dioClient.get(
+        attachment.getDownloadUrl(downloadTemplate, accountId),
+        options: anyNamed('options'),
+        cancelToken: anyNamed('cancelToken'),
+        onReceiveProgress: anyNamed('onReceiveProgress'),
+      )).thenAnswer((_) async => Uint8List.fromList([1, 2]));
+
+      final bytes = await emailApi.downloadAttachmentForWeb(
+        DownloadTaskId('attachment-task'),
+        attachment,
+        accountId,
+        downloadTemplate,
+        AccountRequest.withBasic(
+          userName: UserName('alice@example.invalid'),
+          password: Password('synthetic-password'),
+        ),
+      );
+
+      expect(bytes, [1, 2]);
+    });
+
+    test('attachment export forwards JMAP size to the disk download', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final attachment = Attachment(
+        blobId: Id('blob'),
+        name: 'document.pdf',
+        size: UnsignedInt(3),
+      );
+      final accountId = AccountId(Id('account'));
+      const downloadTemplate = 'https://mail.invalid/download/{accountId}/{blobId}';
+      const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        pathProviderChannel,
+        (_) async => Directory.systemTemp.path,
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(pathProviderChannel, null),
+      );
+      final recordingDownloadManager =
+          _ExpectedSizeRecordingDownloadManager();
+      final api = EmailAPI(
+        httpClient,
+        recordingDownloadManager,
+        dioClient,
+        uuid,
+      );
+
+      await api.exportAttachment(
+        attachment,
+        accountId,
+        downloadTemplate,
+        AccountRequest.withBasic(
+          userName: UserName('alice@example.invalid'),
+          password: Password('synthetic-password'),
+        ),
+        CancelToken(),
+      );
+
+      expect(recordingDownloadManager.observedExpectedSize, 3);
     });
 
     group('markAsRead::test', () {
