@@ -94,14 +94,17 @@ void _testMailboxRowAccessibilityGuidelines() {
 
     await _pump(
       tester,
-      SidebarMailboxItem(
-        mailboxNode: _mailboxNode(
-          id: 'trash',
-          name: 'Trash',
-          role: PresentationMailbox.roleTrash,
+      LinagoraSidebarTheme(
+        data: LinagoraSidebarStyle.light(),
+        child: SidebarMailboxItem(
+          mailboxNode: _mailboxNode(
+            id: 'trash',
+            name: 'Trash',
+            role: PresentationMailbox.roleTrash,
+          ),
+          imagePaths: _imagePaths,
+          isWebDesktop: true,
         ),
-        imagePaths: _imagePaths,
-        isWebDesktop: true,
       ),
     );
 
