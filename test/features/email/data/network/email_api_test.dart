@@ -72,6 +72,9 @@ class _ExpectedSizeRecordingDownloadManager extends MockDownloadManager {
   MockSpec<Uuid>(),
 ])
 void main() {
+  // Initialize Flutter platform channels before any plain `test()` executes.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('EmailAPI::test', () {
     late HttpClient httpClient;
     late DownloadManager downloadManager;
@@ -202,7 +205,6 @@ void main() {
     });
 
     test('attachment export forwards JMAP size to the disk download', () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
       final attachment = Attachment(
         blobId: Id('blob'),
         name: 'document.pdf',
